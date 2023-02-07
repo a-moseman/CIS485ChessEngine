@@ -1,7 +1,7 @@
-package org.example;
+package cis485.chessengine;
 
 public class Main {
     public static void main(String[] args) {
-        System.out.println("Hello world!");
+        Engine engine = new Engine();
     }
 }
