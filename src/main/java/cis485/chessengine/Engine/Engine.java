@@ -1,16 +1,15 @@
-package cis485.chessengine;
+package cis485.chessengine.Engine;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 public class Engine {
     private Random random;
-    private int secondsPerMove = 2;
+    private int secondsPerMove = 10;
     private Board board;
     private Side side;
 
@@ -23,7 +22,7 @@ public class Engine {
 
     class Node {
         Node parent;
-        List<Node> children;
+        Node[] children;
         Board position;
         Move move;
         int totalSimReward;
@@ -34,30 +33,52 @@ public class Engine {
             this.move = move;
             this.position = position;
             this.parent = parent;
-            this.children = new ArrayList<>();
         }
     }
 
     Node root;
+    int visits;
 
     //https://int8.io/monte-carlo-tree-search-beginners-guide/
 
     public Move run(String position) {
+        visits = 0;
+
         board.loadFromFen(position);
         side = board.getSideToMove();
         root = new Node(null, board, null);
         visit(root);
-        return mcts(root);
+        Move best = mcts(root);
+
+        // DEBUG
+        /*
+        for (int i = 0; i < root.children.length; i++) {
+            Move move = root.children[i].move;
+            int v = root.children[i].totalVisits;
+            int r = root.children[i].totalSimReward;
+            System.out.println(move + " (" + r + ", " + v + ")");
+        }
+        System.out.println("Nodes: " + visits);
+         */
+        // DEBUG
+
+        return best;
     }
 
     private void visit(Node node) {
+        visits++;
+
         node.visited = true;
         List<Move> legalMoves = node.position.legalMoves();
-        for (Move move : legalMoves) {
-            Board newBoard = node.position.clone();
+        node.children = new Node[legalMoves.size()];
+        int i;
+        for (i = 0; i < node.children.length; i++) {
+            Move move = legalMoves.get(i);
+            Board newBoard = new Board();
+            newBoard.loadFromFen(node.position.getFen()); // faster than Board.clone()
             newBoard.doMove(move);
             Node child = new Node(move, newBoard, node);
-            node.children.add(child);
+            node.children[i] = child;
         }
     }
 
@@ -100,7 +121,7 @@ public class Engine {
 
     private Node rollOutPolicy(Node node) {
         // TODO: impelement ml stuff?
-        return pickRandom(node.children);
+        return node.children[random.nextInt(node.children.length)]; // pick random
         /*
         int bestScore = Evaluator.materialBalance(node.children.get(0).position, side);
         int best = 0;
@@ -117,7 +138,7 @@ public class Engine {
 
     private boolean isNonTerminal(Node node) {
         // DONE
-        return !node.position.isMated() && !node.position.isDraw();
+        return !node.position.isDraw() && !node.position.isMated();
     }
 
     private boolean isFullyExpanded(Node node) {
@@ -132,27 +153,28 @@ public class Engine {
 
     private Node bestUCT(Node node) {
         // DONE
-        double bestUct = uctOfChild(node.children.get(0), node);
+        double bestUct = uctOfChild(node.children[0]);
         int best = 0;
-        for (int i = 0; i < node.children.size(); i++) {
-            double uct = uctOfChild(node.children.get(i), node);
+        int i = 0;
+        for (i = 0; i < node.children.length; i++) {
+            double uct = uctOfChild(node.children[i]);
             if (bestUct < uct) {
                 bestUct = uct;
                 best = i;
             }
         }
-        return node.children.get(best);
+        return node.children[best];
     }
 
-    private double uctOfChild(Node child, Node parent) {
+    private double uctOfChild(Node child) {
         // DONE
-        double c = 0.5;
+        double c = 0.75;
         double exploitationComponent = (double) child.totalSimReward / child.totalVisits;
-        double explorationComponent = Math.sqrt(Math.log(parent.totalVisits) / child.totalVisits);
+        double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
         return exploitationComponent + c * explorationComponent;
     }
 
-    private Node pickUnvisited(List<Node> children) {
+    private Node pickUnvisited(Node[] children) {
         // DONE
         for (Node child : children) {
             if (!child.visited) {
@@ -162,21 +184,16 @@ public class Engine {
         return null;
     }
 
-    private Node pickRandom(List<Node> children) {
-        // DONE
-        int choice = random.nextInt(children.size());
-        return children.get(choice);
-    }
-
     private Node bestChild(Node node) {
         // DONE
         int best = 0;
-        for (int i = 1; i < node.children.size(); i++) {
-            if (node.children.get(best).totalSimReward < node.children.get(i).totalSimReward) {
+        int i;
+        for (i = 1; i < node.children.length; i++) {
+            if (node.children[best].totalVisits < node.children[i].totalVisits) {
                 best = i;
             }
         }
-        return node.children.get(best);
+        return node.children[best];
     }
 
     private int result(Node node) {
@@ -188,10 +205,7 @@ public class Engine {
                 return -1;
             }
         }
-        if (node.position.isDraw()) {
-            return -1;
-        }
-        return 0; // should never happen
+        return 0; // draw
     }
 
     public int getSecondsPerMove() {

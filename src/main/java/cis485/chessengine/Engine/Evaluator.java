@@ -1,4 +1,4 @@
-package cis485.chessengine;
+package cis485.chessengine.Engine;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;

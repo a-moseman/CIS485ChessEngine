@@ -1,4 +1,4 @@
-package cis485.chessengine;
+package cis485.chessengine.Engine;
 
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
