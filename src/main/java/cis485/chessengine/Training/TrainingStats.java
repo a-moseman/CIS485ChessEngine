@@ -82,12 +82,14 @@ public class TrainingStats {
             MatchStats matchStats = matches.get(i);
             GameStats gameOne = matchStats.GAME_ONE;
             GameStats gameTwo = matchStats.GAME_TWO;
-            averageAlphaNodesVisited += gameOne.getAlphaTotalNodesVisited();
-            averageAlphaNodesVisited += gameTwo.getAlphaTotalNodesVisited();
-            averageBetaNodesVisited += gameOne.getBetaTotalNodesVisited();
-            averageBetaNodesVisited += gameTwo.getBetaTotalNodesVisited();
+            averageAlphaNodesVisited += (double) gameOne.getAlphaTotalNodesVisited() / gameOne.getMoves();
+            averageAlphaNodesVisited += (double) gameTwo.getAlphaTotalNodesVisited() / gameTwo.getMoves();
+            averageBetaNodesVisited += (double) gameOne.getBetaTotalNodesVisited() / gameOne.getMoves();
+            averageBetaNodesVisited += (double) gameTwo.getBetaTotalNodesVisited() / gameTwo.getMoves();
         }
         averageAlphaNodesVisited /= matches.size();
         averageBetaNodesVisited /= matches.size();
+        System.out.println("Avg. Alpha Nodes Per Move: " + averageAlphaNodesVisited);
+        System.out.println("Avg. Beta Nodes Per Mode: " + averageBetaNodesVisited);
     }
 }
