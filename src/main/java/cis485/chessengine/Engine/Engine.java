@@ -38,6 +38,9 @@ public class Engine {
 
     Node root;
     int visits;
+    public int getVisits() {
+        return visits;
+    }
 
     //https://int8.io/monte-carlo-tree-search-beginners-guide/
 
@@ -155,8 +158,7 @@ public class Engine {
         // DONE
         double bestUct = uctOfChild(node.children[0]);
         int best = 0;
-        int i = 0;
-        for (i = 0; i < node.children.length; i++) {
+        for (int i = 0; i < node.children.length; i++) {
             double uct = uctOfChild(node.children[i]);
             if (bestUct < uct) {
                 bestUct = uct;
@@ -168,7 +170,7 @@ public class Engine {
 
     private double uctOfChild(Node child) {
         // DONE
-        double c = 0.75;
+        double c = Math.sqrt(2);
         double exploitationComponent = (double) child.totalSimReward / child.totalVisits;
         double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
         return exploitationComponent + c * explorationComponent;
