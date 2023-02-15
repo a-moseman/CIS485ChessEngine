@@ -3,19 +3,25 @@ package cis485.chessengine.Engine;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
 
 import java.util.List;
 import java.util.Random;
 
 public class Engine {
     private Random random;
-    private int secondsPerMove = 10;
+    private int secondsPerMove;
     private Board board;
     private Side side;
+    private MultiLayerNetwork model;
 
-    public Engine() {
+    public Engine(MultiLayerNetwork model) {
+        this.secondsPerMove = 10; // default
         this.board = new Board();
         this.random = new Random();
+        this.model = model;
     }
 
     //https://www.analyticsvidhya.com/blog/2019/01/monte-carlo-tree-search-introduction-algorithm-deepmind-alphago/
@@ -123,20 +129,29 @@ public class Engine {
     }
 
     private Node rollOutPolicy(Node node) {
-        // TODO: impelement ml stuff?
-        return node.children[random.nextInt(node.children.length)]; // pick random
-        /*
-        int bestScore = Evaluator.materialBalance(node.children.get(0).position, side);
+        // get predicted outcomes for each position
+        // note: these are game results, not if this engine will win (i.e., they predict which side will win, not if it will win)
         int best = 0;
-        for (int i = 0; i < node.children.size(); i++) {
-            int score = Evaluator.materialBalance(node.children.get(i).position, side);
-            if (bestScore < score) {
-                bestScore = score;
-                best = i;
+        INDArray x;
+        INDArray y;
+        int i;
+        float[][] predictions = new float[node.children.length][2];
+        int s = side == Side.WHITE ? 0 : 1;
+        for (i = 0; i < node.children.length; i++) {
+            x = Nd4j.create(BoardConverter.convert(node.children[i].position));
+            y = model.output(x);
+            predictions[i][0] = y.getFloat(0);
+            predictions[i][1] = y.getFloat(1);
+            if (predictions[i][s] < predictions[i][Math.abs(s - 1)]) { // ignore where other side is predicted better
+                continue;
+            }
+            if (i > 0) {
+                if (predictions[best][s] < predictions[i][s]) {
+                    best = i;
+                }
             }
         }
-        return node.children.get(best);
-         */
+        return node.children[best];
     }
 
     private boolean isNonTerminal(Node node) {
@@ -203,11 +218,8 @@ public class Engine {
             if (node.position.getSideToMove() != side) {
                 return 1;
             }
-            else {
-                return -1;
-            }
         }
-        return 0; // draw
+        return -1; // if loss or draw
     }
 
     public int getSecondsPerMove() {
@@ -216,5 +228,9 @@ public class Engine {
 
     public void setSecondsPerMove(int secondsPerMove) {
         this.secondsPerMove = secondsPerMove;
+    }
+
+    public MultiLayerNetwork getModel() {
+        return model;
     }
 }

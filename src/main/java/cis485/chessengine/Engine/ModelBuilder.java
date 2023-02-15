@@ -1,5 +1,6 @@
 package cis485.chessengine.Engine;
 
+import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.inputs.InputType;
@@ -10,6 +11,7 @@ import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
+import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 public class ModelBuilder {
@@ -18,7 +20,9 @@ public class ModelBuilder {
 
     public static MultiLayerNetwork build() {
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                .seed(SEED)
+                //.seed(SEED)
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .updater(new Nesterovs(0.001, 0.9)) // todo: explore
                 .weightInit(WeightInit.XAVIER) // todo: explore
                 .activation(Activation.RELU) // todo: explore
                 .list()
@@ -34,6 +38,7 @@ public class ModelBuilder {
                                 .build())
                 .layer(new ConvolutionLayer.Builder(3, 3)
                         .nIn(CHANNELS)
+                        .nOut(8)
                         .stride(1, 1)
                         .activation(Activation.RELU)
                         .build())
@@ -46,13 +51,15 @@ public class ModelBuilder {
                         .nOut(64)
                         .build())
                 .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(1)
-                        .activation(Activation.HARDTANH) // todo: test
+                        .nOut(2)
+                        .activation(Activation.SOFTMAX) // todo: test
                         .build())
                 .setInputType(InputType.convolutional(8, 8, CHANNELS))
                 .build();
         MultiLayerNetwork model = new MultiLayerNetwork(conf);
         model.init();
+
+
         return model;
     }
 }

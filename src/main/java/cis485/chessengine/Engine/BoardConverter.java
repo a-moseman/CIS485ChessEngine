@@ -1,9 +1,6 @@
 package cis485.chessengine.Engine;
 
-import com.github.bhlangonijr.chesslib.Board;
-import com.github.bhlangonijr.chesslib.Piece;
-import com.github.bhlangonijr.chesslib.Side;
-import com.github.bhlangonijr.chesslib.Square;
+import com.github.bhlangonijr.chesslib.*;
 
 public class BoardConverter {
     /**
@@ -12,18 +9,21 @@ public class BoardConverter {
      * @param board The current board state.
      * @return Board
      */
-    public static boolean[][][] convert(Board board) {
-        boolean[][][] data = new boolean[8][8][9];
+    public static float[][][][] convert(Board board) {
+        float[][][][] data = new float[1][9][8][8]; // minibatch, channel, height, width
         int x, y;
+        Square square;
+        Piece piece;
+        Side side;
         for (x = 0; x < 8; x++) {
             for (y = 0; y < 8; y++) {
-                Square square = Square.squareAt(x + y * 8); // todo: confirm x + y * 8 is accurate
-                Piece piece = board.getPiece(square);
+                square = Square.squareAt(x + y * 8); // todo: confirm x + y * 8 is accurate
+                piece = board.getPiece(square);
                 if (!piece.equals(Piece.NONE)) {
-                    Side side = piece.getPieceSide();
-                    data[x][y][0] = true;
-                    data[x][y][side == Side.WHITE ? 1 : 2] = true;
-                    data[x][y][piece.getPieceType().ordinal() + 3] = true;
+                    side = piece.getPieceSide();
+                    data[0][0][x][y] = 1;
+                    data[0][side == Side.WHITE ? 1 : 2][x][y] = 1;
+                    data[0][piece.getPieceType().ordinal() + 3][x][y] = 1;
                 }
             }
         }

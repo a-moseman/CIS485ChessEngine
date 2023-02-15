@@ -1,15 +1,25 @@
 package cis485.chessengine.Training;
 
+import cis485.chessengine.Engine.BoardConverter;
 import cis485.chessengine.Engine.Engine;
+import cis485.chessengine.Engine.ModelBuilder;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
+import com.github.bhlangonijr.chesslib.move.Move;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.nd4j.linalg.factory.Nd4j;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Main {
     private static final int EPOCHS = 10;
     private static final int SECONDS_PER_MOVE = 1;
     public static void main(String[] args) {
-        Engine alpha = new Engine();
-        Engine beta = new Engine();
+        MultiLayerNetwork alphaModel = ModelBuilder.build();
+        MultiLayerNetwork betaModel = ModelBuilder.build();
+        Engine alpha = new Engine(alphaModel);
+        Engine beta = new Engine(betaModel);
         TrainingStats trainingStats = new TrainingStats();
         long trainingStartTime = System.currentTimeMillis();
         for (int e = 0; e < EPOCHS; e++) {
@@ -40,15 +50,20 @@ public class Main {
         alpha.setSecondsPerMove(secondsPerMove);
         beta.setSecondsPerMove(secondsPerMove);
         long startTime = System.currentTimeMillis();
+        List<float[][][][]> x = new ArrayList<>(); // inputs for training
         while (!board.isDraw() && !board.isMated()) {
+            System.out.println(board); // DEBUG
             if (board.getSideToMove() == alphaSide) {
-                board.doMove(alpha.run(board.getFen()));
-                gameStats.updateFromMove(alpha.getVisits(), 0);
+                Move move = alpha.run(board.getFen());
+                board.doMove(move);
+                gameStats.updateFromMove(alpha.getVisits(), 0, move.toString());
             }
             else {
-                board.doMove(beta.run(board.getFen()));
-                gameStats.updateFromMove(0, beta.getVisits());
+                Move move = beta.run(board.getFen());
+                board.doMove(move);
+                gameStats.updateFromMove(0, beta.getVisits(), move.toString());
             }
+            x.add(BoardConverter.convert(board));
         }
         long endTime = System.currentTimeMillis();
         int result = 0;
@@ -57,6 +72,33 @@ public class Main {
             result = board.getSideToMove() == Side.WHITE ? -1 : 1;
         }
         gameStats.setResult(result, endTime - startTime);
+
+        // train models
+        List<float[]> y = new ArrayList<>(); // labels for training
+        for (int i = 0; i < x.size(); i++) {
+            if (i % 2 == 0) { // white
+                if (result == 1) {
+                    y.add(new float[]{1, 0});
+                }
+                else {
+                    y.add(new float[]{0, 1});
+                }
+            }
+            else { // black
+                if (result == -1) {
+                    y.add(new float[]{1, 0});
+                }
+                else {
+                    y.add(new float[]{0, 1});
+                }
+            }
+        }
+
+        for (int i = 0; i < x.size(); i++) {
+            alpha.getModel().fit(Nd4j.create(x.get(i)), Nd4j.create(y.get(i)));
+            beta.getModel().fit(Nd4j.create(x.get(i)), Nd4j.create(y.get(i)));
+        }
+
         return gameStats;
     }
 }
