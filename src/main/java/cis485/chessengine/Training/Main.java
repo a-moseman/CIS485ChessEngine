@@ -15,7 +15,12 @@ import java.util.List;
 public class Main {
     private static final int EPOCHS = 10;
     private static final int SECONDS_PER_MOVE = 1;
+
     public static void main(String[] args) {
+        //System.setProperty(ND4JSystemProperties.LOG_INITIALIZATION, "true");
+
+
+
         MultiLayerNetwork alphaModel = ModelBuilder.build();
         MultiLayerNetwork betaModel = ModelBuilder.build();
         Engine alpha = new Engine(alphaModel);

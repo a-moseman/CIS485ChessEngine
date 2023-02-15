@@ -36,6 +36,7 @@ public class ModelBuilder {
                                 .kernelSize(2, 2)
                                 .stride(2, 2)
                                 .build())
+                /*
                 .layer(new ConvolutionLayer.Builder(3, 3)
                         .nIn(CHANNELS)
                         .nOut(8)
@@ -46,9 +47,10 @@ public class ModelBuilder {
                         .kernelSize(2, 2)
                         .stride(2, 2)
                         .build())
+                 */
                 .layer(new DenseLayer.Builder()
                         .activation(Activation.RELU)
-                        .nOut(64)
+                        .nOut(16)
                         .build())
                 .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
                         .nOut(2)
