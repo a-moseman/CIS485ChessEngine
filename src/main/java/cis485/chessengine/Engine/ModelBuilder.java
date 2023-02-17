@@ -61,7 +61,6 @@ public class ModelBuilder {
         MultiLayerNetwork model = new MultiLayerNetwork(conf);
         model.init();
 
-
         return model;
     }
 }
