@@ -26,22 +26,6 @@ public class Engine {
 
     //https://www.analyticsvidhya.com/blog/2019/01/monte-carlo-tree-search-introduction-algorithm-deepmind-alphago/
 
-    class Node {
-        Node parent;
-        Node[] children;
-        Board position;
-        Move move;
-        int totalSimReward;
-        int totalVisits;
-        boolean visited;
-
-        public Node(Move move, Board position, Node parent) {
-            this.move = move;
-            this.position = position;
-            this.parent = parent;
-        }
-    }
-
     Node root;
     int visits;
     public int getVisits() {
