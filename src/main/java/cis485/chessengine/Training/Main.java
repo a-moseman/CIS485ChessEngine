@@ -13,13 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
-    private static final int EPOCHS = 10;
+    private static final int EPOCHS = 1;
     private static final int SECONDS_PER_MOVE = 1;
 
     public static void main(String[] args) {
         //System.setProperty(ND4JSystemProperties.LOG_INITIALIZATION, "true");
-
-
 
         MultiLayerNetwork alphaModel = ModelBuilder.build();
         MultiLayerNetwork betaModel = ModelBuilder.build();
@@ -54,6 +52,8 @@ public class Main {
         Board board = new Board();
         alpha.setSecondsPerMove(secondsPerMove);
         beta.setSecondsPerMove(secondsPerMove);
+        alpha.setSide(alphaSide);
+        beta.setSide(alphaSide == Side.WHITE ? Side.BLACK : Side.WHITE);
         long startTime = System.currentTimeMillis();
         List<float[][][][]> x = new ArrayList<>(); // inputs for training
         while (!board.isDraw() && !board.isMated()) {
