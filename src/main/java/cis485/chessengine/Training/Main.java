@@ -7,19 +7,19 @@ import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.factory.Nd4j;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
-    private static final int EPOCHS = 10;
+    private static final int EPOCHS = 50;
     private static final int SECONDS_PER_MOVE = 1;
 
     public static void main(String[] args) {
         //System.setProperty(ND4JSystemProperties.LOG_INITIALIZATION, "true");
-
-
 
         MultiLayerNetwork alphaModel = ModelBuilder.build();
         MultiLayerNetwork betaModel = ModelBuilder.build();
@@ -41,6 +41,13 @@ public class Main {
         System.out.println("Finished training");
         trainingStats.printResults();
         trainingStats.printStatistics();
+        // save to file
+        try {
+            ModelSerializer.writeModel(alphaModel, "C:\\Users\\drewm\\OneDrive\\Desktop\\EngineModels\\alpha", true);
+            ModelSerializer.writeModel(betaModel, "C:\\Users\\drewm\\OneDrive\\Desktop\\EngineModels\\beta", true);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static MatchStats runMatch(int secondsPerMove, Engine alpha, Engine beta) {
@@ -54,6 +61,8 @@ public class Main {
         Board board = new Board();
         alpha.setSecondsPerMove(secondsPerMove);
         beta.setSecondsPerMove(secondsPerMove);
+        alpha.setSide(alphaSide);
+        beta.setSide(alphaSide == Side.WHITE ? Side.BLACK : Side.WHITE);
         long startTime = System.currentTimeMillis();
         List<float[][][][]> x = new ArrayList<>(); // inputs for training
         while (!board.isDraw() && !board.isMated()) {
