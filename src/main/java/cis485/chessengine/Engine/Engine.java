@@ -34,6 +34,11 @@ public class Engine {
 
     //https://int8.io/monte-carlo-tree-search-beginners-guide/
 
+    /**
+     * Run the engine on the position.
+     * @param position The position in FEN.
+     * @return Move
+     */
     public Move run(String position) {
         visits = 0; // DEBUG
 
