@@ -51,31 +51,18 @@ public class Engine {
     //https://int8.io/monte-carlo-tree-search-beginners-guide/
 
     public Move run(String position) {
-        visits = 0;
+        visits = 0; // DEBUG
 
         board.loadFromFen(position);
         side = board.getSideToMove();
         root = new Node(null, board, null);
         visit(root);
         Move best = mcts(root);
-
-        // DEBUG
-        /*
-        for (int i = 0; i < root.children.length; i++) {
-            Move move = root.children[i].move;
-            int v = root.children[i].totalVisits;
-            int r = root.children[i].totalSimReward;
-            System.out.println(move + " (" + r + ", " + v + ")");
-        }
-        System.out.println("Nodes: " + visits);
-         */
-        // DEBUG
-
         return best;
     }
 
     private void visit(Node node) {
-        visits++;
+        visits++; // DEBUG
 
         node.visited = true;
         List<Move> legalMoves = node.position.legalMoves();
@@ -96,7 +83,6 @@ public class Engine {
         while (System.nanoTime() - startTime < 1_000_000_000L * secondsPerMove) {
             Node leaf = traverse(root);
             int simResult = rollout(leaf);
-            //System.out.println(leaf.move + " - " + simResult); // DEBUG
             backpropagate(leaf, simResult);
         }
         return bestChild(root).move;
@@ -110,7 +96,6 @@ public class Engine {
     }
 
     private int rollout(Node node) {
-        // DONE
         while (isNonTerminal(node)) {
             visit(node);
             node = rollOutPolicy(node);
@@ -119,7 +104,6 @@ public class Engine {
     }
 
     private void backpropagate(Node node, int result) {
-        // DONE
         if (root.equals(node)) {
             return;
         }
@@ -155,12 +139,10 @@ public class Engine {
     }
 
     private boolean isNonTerminal(Node node) {
-        // DONE
         return !node.position.isDraw() && !node.position.isMated();
     }
 
     private boolean isFullyExpanded(Node node) {
-        // DONE
         for (Node child : node.children) {
             if (!child.visited) {
                 return false;
@@ -170,7 +152,6 @@ public class Engine {
     }
 
     private Node bestUCT(Node node) {
-        // DONE
         double bestUct = uctOfChild(node.children[0]);
         int best = 0;
         for (int i = 0; i < node.children.length; i++) {
@@ -184,7 +165,6 @@ public class Engine {
     }
 
     private double uctOfChild(Node child) {
-        // DONE
         double c = Math.sqrt(2);
         double exploitationComponent = (double) child.totalSimReward / child.totalVisits;
         double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
@@ -192,7 +172,6 @@ public class Engine {
     }
 
     private Node pickUnvisited(Node[] children) {
-        // DONE
         for (Node child : children) {
             if (!child.visited) {
                 return child;
@@ -202,7 +181,6 @@ public class Engine {
     }
 
     private Node bestChild(Node node) {
-        // DONE
         int best = 0;
         int i;
         for (i = 1; i < node.children.length; i++) {
