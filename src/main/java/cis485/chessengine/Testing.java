@@ -10,6 +10,10 @@ public class Testing {
         Board board = new Board();
         Engine white = new Engine(ModelBuilder.build());
         Engine black = new Engine(ModelBuilder.build());
+        white.setSide(Side.WHITE);
+        white.setSecondsPerMove(1);
+        black.setSide(Side.BLACK);
+        black.setSecondsPerMove(1);
         while (!board.isMated() && !board.isDraw()) {
             System.out.println(board);
             if (board.getSideToMove() == Side.WHITE) {
