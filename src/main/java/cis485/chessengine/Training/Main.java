@@ -8,6 +8,7 @@ import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.util.ModelSerializer;
+import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 
 import java.io.IOException;
@@ -16,15 +17,12 @@ import java.util.List;
 
 public class Main {
     private static final int EPOCHS = 50;
-    private static final int SECONDS_PER_MOVE = 1;
+    private static final float SECONDS_PER_MOVE = 1f;
 
     public static void main(String[] args) {
-        //System.setProperty(ND4JSystemProperties.LOG_INITIALIZATION, "true");
-
-        MultiLayerNetwork alphaModel = ModelBuilder.build();
-        MultiLayerNetwork betaModel = ModelBuilder.build();
-        Engine alpha = new Engine(alphaModel);
-        Engine beta = new Engine(betaModel);
+        MultiLayerNetwork model = ModelBuilder.build();
+        Engine alpha = new Engine(model);
+        Engine beta = new Engine(model);
         TrainingStats trainingStats = new TrainingStats();
         long trainingStartTime = System.currentTimeMillis();
         for (int e = 0; e < EPOCHS; e++) {
@@ -43,20 +41,19 @@ public class Main {
         trainingStats.printStatistics();
         // save to file
         try {
-            ModelSerializer.writeModel(alphaModel, "C:\\Users\\drewm\\OneDrive\\Desktop\\EngineModels\\alpha", true);
-            ModelSerializer.writeModel(betaModel, "C:\\Users\\drewm\\OneDrive\\Desktop\\EngineModels\\beta", true);
+            ModelSerializer.writeModel(model, "C:\\Users\\drewm\\Desktop\\EngineModels\\model.mdl", true);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static MatchStats runMatch(int secondsPerMove, Engine alpha, Engine beta) {
+    private static MatchStats runMatch(float secondsPerMove, Engine alpha, Engine beta) {
         GameStats gameOne = runGame(secondsPerMove, Side.WHITE, alpha, beta);
         GameStats gameTwo = runGame(secondsPerMove, Side.BLACK, alpha, beta);
         return new MatchStats(gameOne, gameTwo);
     }
 
-    private static GameStats runGame(int secondsPerMove, Side alphaSide, Engine alpha, Engine beta) {
+    private static GameStats runGame(float secondsPerMove, Side alphaSide, Engine alpha, Engine beta) {
         GameStats gameStats = new GameStats(alphaSide == Side.WHITE, secondsPerMove);
         Board board = new Board();
         alpha.setSecondsPerMove(secondsPerMove);
@@ -64,9 +61,8 @@ public class Main {
         alpha.setSide(alphaSide);
         beta.setSide(alphaSide == Side.WHITE ? Side.BLACK : Side.WHITE);
         long startTime = System.currentTimeMillis();
-        List<float[][][][]> x = new ArrayList<>(); // inputs for training
+        List<INDArray> x = new ArrayList<>(); // inputs for training
         while (!board.isDraw() && !board.isMated()) {
-            System.out.println(board); // DEBUG
             if (board.getSideToMove() == alphaSide) {
                 Move move = alpha.run(board.getFen());
                 board.doMove(move);
@@ -88,29 +84,29 @@ public class Main {
         gameStats.setResult(result, endTime - startTime);
 
         // train models
-        List<float[]> y = new ArrayList<>(); // labels for training
+        List<float[][]> y = new ArrayList<>(); // labels for training
         for (int i = 0; i < x.size(); i++) {
             if (i % 2 == 0) { // white
                 if (result == 1) {
-                    y.add(new float[]{1, 0});
+                    y.add(new float[][]{{1, 0}});
                 }
                 else {
-                    y.add(new float[]{0, 1});
+                    y.add(new float[][]{{0, 1}});
                 }
             }
             else { // black
                 if (result == -1) {
-                    y.add(new float[]{1, 0});
+                    y.add(new float[][]{{1, 0}});
                 }
                 else {
-                    y.add(new float[]{0, 1});
+                    y.add(new float[][]{{0, 1}});
                 }
             }
         }
 
+        System.out.println("Self-play complete, beginning training...");
         for (int i = 0; i < x.size(); i++) {
-            alpha.getModel().fit(Nd4j.create(x.get(i)), Nd4j.create(y.get(i)));
-            beta.getModel().fit(Nd4j.create(x.get(i)), Nd4j.create(y.get(i)));
+            alpha.getModel().fit(x.get(i), Nd4j.create(y.get(i)));
         }
 
         return gameStats;

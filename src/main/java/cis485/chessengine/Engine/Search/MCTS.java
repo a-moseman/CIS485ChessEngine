@@ -7,14 +7,17 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.factory.Nd4jBackend;
 
 import java.util.List;
+import java.util.Random;
 
 //https://www.analyticsvidhya.com/blog/2019/01/monte-carlo-tree-search-introduction-algorithm-deepmind-alphago/
 
 //https://int8.io/monte-carlo-tree-search-beginners-guide/
 
 public class MCTS {
+    private static final Random RANDOM = new Random();
     private MultiLayerNetwork model;
     private Side side;
     private Node root;
@@ -50,6 +53,7 @@ public class MCTS {
     public void step() {
         Node leaf = traverse(root);
         int result = rollout(leaf);
+        //int result = evaluate(leaf);
         backpropagate(leaf, result);
     }
 
@@ -59,6 +63,9 @@ public class MCTS {
 
     private Node traverse(Node node) {
         while (isFullyExpanded(node)) {
+            if (node.children.length == 0) { // sometimes runs out of children
+                return node;
+            }
             node = bestUCT(node);
         }
         return pickUnvisited(node.children);
@@ -72,6 +79,16 @@ public class MCTS {
         return result(node);
     }
 
+    /**
+     * Alternative to rollout.
+     */
+    private int evaluate(Node node) {
+        visit(node);
+        INDArray x = BoardConverter.convert(node.position);
+        int[] y = model.predict(x); // biggest bottle-neck
+        return y[0] == 1 ? 1 : -1;
+    }
+
     private void backpropagate(Node node, int result) {
         if (root.equals(node)) {
             return;
@@ -81,7 +98,9 @@ public class MCTS {
         backpropagate(node.parent, result);
     }
 
+    //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
     private Node rollOutPolicy(Node node) {
+        // todo: speed up (78064000 ns atm)
         // get predicted outcomes for each position
         // note: these are game results, not if this engine will win (i.e., they predict which side will win, not if it will win)
         int best = 0;
@@ -90,12 +109,13 @@ public class MCTS {
         int i;
         float[][] predictions = new float[node.children.length][2];
         int s = side == Side.WHITE ? 0 : 1;
+        int notS = side == Side.WHITE ? 1 : 0;
         for (i = 0; i < node.children.length; i++) {
-            x = Nd4j.create(BoardConverter.convert(node.children[i].position));
+            x = BoardConverter.convert(node.children[i].position);
             y = model.output(x);
             predictions[i][0] = y.getFloat(0);
             predictions[i][1] = y.getFloat(1);
-            if (predictions[i][s] < predictions[i][Math.abs(s - 1)]) { // ignore where other side is predicted better
+            if (predictions[i][s] < predictions[i][notS]) { // ignore where other side is predicted better
                 continue;
             }
             if (i > 0) {

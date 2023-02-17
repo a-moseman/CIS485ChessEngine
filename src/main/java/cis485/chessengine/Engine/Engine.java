@@ -6,7 +6,7 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 public class Engine {
-    private int secondsPerMove;
+    private float secondsPerMove;
     private Side side;
     private MultiLayerNetwork model;
     private MCTS mcts;
@@ -37,11 +37,11 @@ public class Engine {
         return mcts.getVisits();
     }
 
-    public int getSecondsPerMove() {
+    public float getSecondsPerMove() {
         return secondsPerMove;
     }
 
-    public void setSecondsPerMove(int secondsPerMove) {
+    public void setSecondsPerMove(float secondsPerMove) {
         this.secondsPerMove = secondsPerMove;
     }
 

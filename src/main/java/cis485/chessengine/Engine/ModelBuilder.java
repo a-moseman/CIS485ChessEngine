@@ -50,7 +50,7 @@ public class ModelBuilder {
                  */
                 .layer(new DenseLayer.Builder()
                         .activation(Activation.RELU)
-                        .nOut(16)
+                        .nOut(8)
                         .build())
                 .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
                         .nOut(2)

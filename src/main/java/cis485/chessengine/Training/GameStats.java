@@ -5,7 +5,7 @@ import java.util.List;
 
 public class GameStats {
     public final boolean IS_ALPHA_WHITE;
-    public final int SECONDS_PER_MOVE;
+    public final float SECONDS_PER_MOVE;
     private int moves;
     private int alphaTotalNodesVisited;
     private int betaTotalNodesVisited;
@@ -13,7 +13,7 @@ public class GameStats {
     private long gameDuration;
     private List<String> moveList;
 
-    public GameStats(boolean isAlphaWhite, int secondsPerMove) {
+    public GameStats(boolean isAlphaWhite, float secondsPerMove) {
         this.IS_ALPHA_WHITE = isAlphaWhite;
         this.SECONDS_PER_MOVE = secondsPerMove;
         this.moveList = new ArrayList<>();
