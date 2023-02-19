@@ -7,7 +7,6 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.factory.Nd4jBackend;
 
 import java.util.List;
 import java.util.Random;
@@ -22,6 +21,7 @@ public class MCTS {
     private Side side;
     private Node root;
     private int visits;
+    private boolean training;
 
     public MCTS(MultiLayerNetwork model, Side side, String position) {
         this.model = model;
@@ -53,7 +53,7 @@ public class MCTS {
     public void step() {
         Node leaf = traverse(root);
         int result = rollout(leaf);
-        //int result = evaluate(leaf);
+        //int result = predict(leaf);
         backpropagate(leaf, result);
     }
 
@@ -82,11 +82,28 @@ public class MCTS {
     /**
      * Alternative to rollout.
      */
-    private int evaluate(Node node) {
+    private int predict(Node node) {
         visit(node);
-        INDArray x = BoardConverter.convert(node.position);
-        int[] y = model.predict(x); // biggest bottle-neck
-        return y[0] == 1 ? 1 : -1;
+        INDArray x = BoardConverter.convert(node.position, true);
+        float[] y = model.output(x).toFloatVector();
+        //System.out.println(y[0] + ", " + y[1] + ", " + y[2]); // DEBUG
+        int r = RANDOM.nextInt(y.length); // if all equal, then random
+        for (int i = 0; i < y.length; i++) {
+            if (y[i] > y[r]) {
+                r = i;
+            }
+        }
+        switch (r) {
+            case 2: // draw
+                return 0;
+            case 0: // white win
+                return side == Side.WHITE ? 1 : -1;
+            case 1: // black win
+                return side == Side.BLACK ? 1 : -1;
+            default:
+                System.out.println("Uh oh, something broke in MCTS.evaluate");
+                return 0;
+        }
     }
 
     private void backpropagate(Node node, int result) {
@@ -95,36 +112,34 @@ public class MCTS {
         }
         node.totalVisits++;
         node.totalSimReward += result;
+        INDArray feature = BoardConverter.convert(node.position, false);
+        INDArray label; // todo
+        model.fit();
         backpropagate(node.parent, result);
     }
 
     //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
     private Node rollOutPolicy(Node node) {
-        // todo: speed up (78064000 ns atm)
-        // get predicted outcomes for each position
-        // note: these are game results, not if this engine will win (i.e., they predict which side will win, not if it will win)
         int best = 0;
-        INDArray x;
-        INDArray y;
-        int i;
-        float[][] predictions = new float[node.children.length][2];
-        int s = side == Side.WHITE ? 0 : 1;
-        int notS = side == Side.WHITE ? 1 : 0;
-        for (i = 0; i < node.children.length; i++) {
-            x = BoardConverter.convert(node.children[i].position);
-            y = model.output(x);
-            predictions[i][0] = y.getFloat(0);
-            predictions[i][1] = y.getFloat(1);
-            if (predictions[i][s] < predictions[i][notS]) { // ignore where other side is predicted better
-                continue;
-            }
-            if (i > 0) {
-                if (predictions[best][s] < predictions[i][s]) {
-                    best = i;
-                }
+        INDArray[] y = new INDArray[node.children.length];
+        for (int i = 0; i < node.children.length; i++) {
+            Node child = node.children[i];
+            y[i] = model.output(BoardConverter.convert(child.position, true));
+            if (getValue(y[i].toFloatVector()) > getValue(y[best].toFloatVector())) {
+                best = i;
             }
         }
+        //return node.children[RANDOM.nextInt(node.children.length)];
         return node.children[best];
+    }
+
+    private float getValue(float[] prediction) {
+        if (side == Side.WHITE) {
+            return prediction[0] - prediction[1] - prediction[2]; // white - black - draw
+        }
+        else {
+            return prediction[1] - prediction[0] - prediction[2]; // black - white - draw
+        }
     }
 
     private boolean isNonTerminal(Node node) {
@@ -173,7 +188,7 @@ public class MCTS {
         int best = 0;
         int i;
         for (i = 1; i < node.children.length; i++) {
-            if (node.children[best].totalVisits < node.children[i].totalVisits) {
+            if (node.children[best].totalSimReward < node.children[i].totalSimReward) {
                 best = i;
             }
         }
@@ -191,5 +206,9 @@ public class MCTS {
 
     public int getVisits() {
         return visits;
+    }
+
+    public boolean setTraining(boolean training) {
+        this.training = training;
     }
 }

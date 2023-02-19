@@ -4,26 +4,28 @@ import cis485.chessengine.Engine.Engine;
 import cis485.chessengine.Engine.ModelBuilder;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
+import org.deeplearning4j.nn.layers.LayerHelper;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-
-import java.io.File;
-import java.io.IOException;
 
 public class Testing {
     public static void main(String[] args) {
+        float SECONDS = .25f;
+
         Board board = new Board();
-        MultiLayerNetwork model = null;
-        try {
-            model = MultiLayerNetwork.load(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\model.mdl"), true);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        MultiLayerNetwork model = ModelBuilder.build();
+        LayerHelper h = model.getLayer(0).getHelper();
+        System.out.println(h==null?null:h.getClass().getName());
+        //        try {
+        //            model = MultiLayerNetwork.load(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\model.mdl"), true);
+        //        } catch (IOException e) {
+        //            throw new RuntimeException(e);
+        //        }
         Engine white = new Engine(model);
         Engine black = new Engine(ModelBuilder.build());
         white.setSide(Side.WHITE);
-        white.setSecondsPerMove(0.5f);
+        white.setSecondsPerMove(SECONDS);
         black.setSide(Side.BLACK);
-        black.setSecondsPerMove(0.5f);
+        black.setSecondsPerMove(SECONDS);
         while (!board.isMated() && !board.isDraw()) {
             System.out.println(board);
             if (board.getSideToMove() == Side.WHITE) {
