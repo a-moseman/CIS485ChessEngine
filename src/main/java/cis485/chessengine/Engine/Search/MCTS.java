@@ -118,6 +118,7 @@ public class MCTS {
 
     //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
     private Node rollOutPolicy(Node node) {
+        /*
         int best = 0;
         INDArray[] y = new INDArray[node.children.length];
         for (int i = 0; i < node.children.length; i++) {
@@ -127,8 +128,9 @@ public class MCTS {
                 best = i;
             }
         }
-        //return node.children[RANDOM.nextInt(node.children.length)];
         return node.children[best];
+         */
+        //return node.children[RANDOM.nextInt(node.children.length)];
     }
 
     private float getValue(float[] prediction) {

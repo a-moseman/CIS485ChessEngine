@@ -18,12 +18,12 @@ dependencies {
     implementation 'org.deeplearning4j:deeplearning4j-core:1.0.0-M1.1'
 
     // CPU
-    //implementation 'org.nd4j:nd4j-native-platform:1.0.0-beta7' // CPU
+    implementation 'org.nd4j:nd4j-native-platform:1.0.0-M1.1' // CPU
 
 
     // GPU
-    implementation 'org.nd4j:nd4j-cuda-11.2-platform:1.0.0-M1.1'
-    implementation 'org.bytedeco:cuda-platform-redist:11.2-8.1-1.5.5'
+    //implementation 'org.nd4j:nd4j-cuda-11.2-platform:1.0.0-M1.1'
+    //implementation 'org.bytedeco:cuda-platform-redist:11.2-8.1-1.5.5'
 
 }
 

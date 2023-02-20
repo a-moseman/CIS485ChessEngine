@@ -1,14 +1,20 @@
 package cis485.chessengine.Engine;
 
+import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import java.util.*;
 
 public class UCI {
+    private static final String INIT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    private static Engine engine;
+    private static String fen = INIT_FEN;
+
     public static void main(String[] args) {
-        MultiLayerNetwork model = ModelBuilder.build();
-        Engine engine = new Engine(model);
         Scanner input = new Scanner(System.in);
-        // todo - stuff
+        MultiLayerNetwork model = ModelBuilder.build();
+        engine = new Engine(model);
+        engine.setTraining(false);
         boolean running = true;
         while (running) {
             // Get input
@@ -37,22 +43,34 @@ public class UCI {
         input = input.substring(9).concat(" ");
         if (input.contains("fen")) {
             input = input.substring(4);
-            // todo give board input
-        } else if (input.contains("startpos ")) {
+            fen = input;
+        }
+        /* won't implement for prototype
+        else if (input.contains("startpos ")) {
             input = input.substring(9);
             // todo give board input
         }
+         */
         if (input.contains("moves")) {
             input = input.substring(input.indexOf("moves")+6);
-            // todo make moves
+            String[] moves = input.split(" ");
+            Board board = new Board();
+            for (String move : moves) {
+                board.doMove(move);
+            }
+            fen = board.getFen();
         }
     }
     // "start calculating on the current position set up with the "position" command"
     public static void go() {
-        // todo
+        Move bestMove;
+        bestMove = engine.run(fen);
+        System.out.println("bestmove " + bestMove);
     }
     // Show board
     public static void print() {
-        // todo
+        Board board = new Board();
+        board.loadFromFen(fen);
+        System.out.println(board);
     }
 }
