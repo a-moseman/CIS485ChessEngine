@@ -16,6 +16,12 @@ public class Engine {
         this.model = model;
     }
 
+    private boolean training;
+
+    public void setTraining(boolean training) {
+        this.training = training;
+    }
+
     /**
      * Run the engine on the position.
      * @param position The position in FEN.
@@ -23,6 +29,7 @@ public class Engine {
      */
     public Move run(String position) {
         mcts = new MCTS(model, side, position);
+        mcts.setTraining(training);
         long start = System.nanoTime();
         while (System.nanoTime() - start < 1_000_000_000L * secondsPerMove) {
             mcts.step();

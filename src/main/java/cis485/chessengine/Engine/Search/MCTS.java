@@ -6,6 +6,7 @@ import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 
 import java.util.List;
@@ -53,7 +54,6 @@ public class MCTS {
     public void step() {
         Node leaf = traverse(root);
         int result = rollout(leaf);
-        //int result = predict(leaf);
         backpropagate(leaf, result);
     }
 
@@ -79,42 +79,40 @@ public class MCTS {
         return result(node);
     }
 
-    /**
-     * Alternative to rollout.
-     */
-    private int predict(Node node) {
-        visit(node);
-        INDArray x = BoardConverter.convert(node.position, true);
-        float[] y = model.output(x).toFloatVector();
-        //System.out.println(y[0] + ", " + y[1] + ", " + y[2]); // DEBUG
-        int r = RANDOM.nextInt(y.length); // if all equal, then random
-        for (int i = 0; i < y.length; i++) {
-            if (y[i] > y[r]) {
-                r = i;
-            }
-        }
-        switch (r) {
-            case 2: // draw
-                return 0;
-            case 0: // white win
-                return side == Side.WHITE ? 1 : -1;
-            case 1: // black win
-                return side == Side.BLACK ? 1 : -1;
-            default:
-                System.out.println("Uh oh, something broke in MCTS.evaluate");
-                return 0;
-        }
-    }
-
     private void backpropagate(Node node, int result) {
         if (root.equals(node)) {
             return;
         }
         node.totalVisits++;
-        node.totalSimReward += result;
-        INDArray feature = BoardConverter.convert(node.position, false);
-        INDArray label; // todo
-        model.fit();
+        switch (result) {
+            case 0:
+                node.totalSimTies++;
+                break;
+            case 1:
+                node.totalSimWhiteWins++;
+                break;
+            case -1:
+                node.totalSimBlackWins++;
+                break;
+        }
+        if (training) {
+            INDArray feature = BoardConverter.convert(node.position, false);
+            float[] raw = new float[3];
+            switch (result) {
+                case 0:
+                    raw[2] = 1;
+                    break;
+                case 1:
+                    raw[0] = 1;
+                    break;
+                case -1:
+                    raw[1] = 1;
+                    break;
+            }
+            INDArray label = Nd4j.create(raw);
+            DataSet dataSet = new DataSet(feature, label);
+            model.fit(dataSet);
+        }
         backpropagate(node.parent, result);
     }
 
@@ -170,7 +168,7 @@ public class MCTS {
 
     private double uctOfChild(Node child) {
         double c = Math.sqrt(2);
-        double exploitationComponent = (double) child.totalSimReward / child.totalVisits;
+        double exploitationComponent = (double) child.getTotalSimReward(side) / child.totalVisits;
         double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
         return exploitationComponent + c * explorationComponent;
     }
@@ -188,7 +186,7 @@ public class MCTS {
         int best = 0;
         int i;
         for (i = 1; i < node.children.length; i++) {
-            if (node.children[best].totalSimReward < node.children[i].totalSimReward) {
+            if (node.children[best].getTotalSimReward(side) < node.children[i].getTotalSimReward(side)) {
                 best = i;
             }
         }
@@ -197,18 +195,21 @@ public class MCTS {
 
     private int result(Node node) {
         if (node.position.isMated()) {
-            if (node.position.getSideToMove() != side) {
+            if (node.position.getSideToMove() != Side.WHITE) {
                 return 1;
             }
+            else {
+                return -1;
+            }
         }
-        return -1; // if loss or draw
+        return 0;
     }
 
     public int getVisits() {
         return visits;
     }
 
-    public boolean setTraining(boolean training) {
+    public void setTraining(boolean training) {
         this.training = training;
     }
 }
