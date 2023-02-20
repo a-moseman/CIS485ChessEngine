@@ -130,7 +130,7 @@ public class MCTS {
         }
         return node.children[best];
          */
-        //return node.children[RANDOM.nextInt(node.children.length)];
+        return node.children[RANDOM.nextInt(node.children.length)];
     }
 
     private float getValue(float[] prediction) {
