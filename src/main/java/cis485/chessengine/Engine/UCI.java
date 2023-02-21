@@ -2,7 +2,6 @@ package cis485.chessengine.Engine;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.move.Move;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import java.util.*;
 
 public class UCI {
@@ -12,24 +11,26 @@ public class UCI {
 
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
-        MultiLayerNetwork model = ModelBuilder.build();
-        engine = new Engine(model);
+        //MultiLayerNetwork model = ModelBuilder.build();
+        //engine = new Engine(model);
+        engine = new Engine();
         engine.setTraining(false);
         boolean running = true;
         while (running) {
             // Get input
-            String command = input.nextLine();
+            String raw = input.nextLine();
+            String[] command = raw.split(" ");
 
             // Quit the program
-            if ("quit".equals(command)) running = false;
+            if ("quit".equals(command[0])) running = false;
 
-            else if ("isready".equals(command)) {
+            else if ("isready".equals(command[0])) {
                 isready();
-            } else if (command.startsWith("position")) {
-                 position(command);
-            } else if ("go".equals(command)) {
-                go();
-            } else if ("print".equals(command)) {
+            } else if (command[0].equals("position")) {
+                 position(raw);
+            } else if ("go".equals(command[0])) {
+                go(command);
+            } else if ("print".equals(command[0])) {
                 print();
             }
         }
@@ -44,6 +45,7 @@ public class UCI {
         if (input.contains("fen")) {
             input = input.substring(4);
             fen = input;
+            isready();
         }
         /* won't implement for prototype
         else if (input.contains("startpos ")) {
@@ -59,11 +61,18 @@ public class UCI {
                 board.doMove(move);
             }
             fen = board.getFen();
+            isready();
         }
     }
     // "start calculating on the current position set up with the "position" command"
-    public static void go() {
+    public static void go(String[] command) {
         Move bestMove;
+        for (int i = 1; i < command.length; i++) {
+            if (command[i].equals("movetime")) {
+                int seconds = Integer.parseInt(command[i + 1]);
+                engine.setSecondsPerMove(seconds);
+            }
+        }
         bestMove = engine.run(fen);
         System.out.println("bestmove " + bestMove);
     }

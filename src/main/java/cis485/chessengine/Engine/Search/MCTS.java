@@ -1,31 +1,23 @@
 package cis485.chessengine.Engine.Search;
 
-import cis485.chessengine.Engine.BoardConverter;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.dataset.DataSet;
-import org.nd4j.linalg.factory.Nd4j;
 
 import java.util.List;
 import java.util.Random;
 
-//https://www.analyticsvidhya.com/blog/2019/01/monte-carlo-tree-search-introduction-algorithm-deepmind-alphago/
-
-//https://int8.io/monte-carlo-tree-search-beginners-guide/
-
 public class MCTS {
     private static final Random RANDOM = new Random();
-    private MultiLayerNetwork model;
+    //private MultiLayerNetwork model;
     private Side side;
     private Node root;
     private int visits;
     private boolean training;
 
-    public MCTS(MultiLayerNetwork model, Side side, String position) {
-        this.model = model;
+    //public MCTS(MultiLayerNetwork model, Side side, String position) {
+    public MCTS(Side side, String position) {
+        //this.model = model;
         this.side = side;
         Board board = new Board();
         board.loadFromFen(position);
@@ -95,6 +87,7 @@ public class MCTS {
                 node.totalSimBlackWins++;
                 break;
         }
+        /*
         if (training) {
             INDArray feature = BoardConverter.convert(node.position, false);
             float[] raw = new float[3];
@@ -113,6 +106,7 @@ public class MCTS {
             DataSet dataSet = new DataSet(feature, label);
             model.fit(dataSet);
         }
+         */
         backpropagate(node.parent, result);
     }
 
@@ -133,6 +127,11 @@ public class MCTS {
         return node.children[RANDOM.nextInt(node.children.length)];
     }
 
+    /**
+     * Solely for MCTS.rollOutPolicy.
+     * @param prediction The output of the model.
+     * @return float
+     */
     private float getValue(float[] prediction) {
         if (side == Side.WHITE) {
             return prediction[0] - prediction[1] - prediction[2]; // white - black - draw

@@ -4,12 +4,11 @@ import cis485.chessengine.Engine.Engine;
 import cis485.chessengine.Engine.ModelBuilder;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
-import org.deeplearning4j.nn.layers.LayerHelper;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 public class Testing {
+    /*
     public static void main(String[] args) {
-        float SECONDS = .25f;
+        float SECONDS = 1;
 
         Board board = new Board();
         MultiLayerNetwork model = ModelBuilder.build();
@@ -38,4 +37,6 @@ public class Testing {
             }
         }
     }
+
+     */
 }

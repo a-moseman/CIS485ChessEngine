@@ -1,8 +1,6 @@
 package cis485.chessengine.Engine;
 
 import com.github.bhlangonijr.chesslib.*;
-import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.factory.Nd4j;
 
 public class BoardConverter {
     /**
@@ -11,6 +9,7 @@ public class BoardConverter {
      * @param board The current board state.
      * @return Board
      */
+    /*
     public static INDArray convert(Board board, boolean forMCTS) {
         INDArray data;
         if (forMCTS) {
@@ -42,4 +41,5 @@ public class BoardConverter {
         }
         return data;
     }
+     */
 }

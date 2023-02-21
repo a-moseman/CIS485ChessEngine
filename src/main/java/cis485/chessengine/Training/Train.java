@@ -3,13 +3,12 @@ package cis485.chessengine.Training;
 import cis485.chessengine.Engine.Engine;
 import cis485.chessengine.Engine.ModelBuilder;
 import com.github.bhlangonijr.chesslib.Board;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.deeplearning4j.util.ModelSerializer;
 
 import java.io.File;
 import java.io.IOException;
 
 public class Train {
+    /*
     private static final int EPOCHS = 100;
     private static final float SECONDS_PER_MOVE = 1;
 
@@ -37,4 +36,6 @@ public class Train {
             board.doMove(engine.run(board.getFen()));
         }
     }
+
+     */
 }
