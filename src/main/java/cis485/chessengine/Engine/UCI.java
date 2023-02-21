@@ -2,6 +2,8 @@ package cis485.chessengine.Engine;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.move.Move;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+
 import java.util.*;
 
 public class UCI {
@@ -11,9 +13,8 @@ public class UCI {
 
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
-        //MultiLayerNetwork model = ModelBuilder.build();
-        //engine = new Engine(model);
-        engine = new Engine();
+        MultiLayerNetwork model = ModelBuilder.build();
+        engine = new Engine(model);
         engine.setTraining(false);
         boolean running = true;
         while (running) {

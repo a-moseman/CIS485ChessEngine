@@ -3,19 +3,19 @@ package cis485.chessengine.Engine;
 import cis485.chessengine.Engine.Search.MCTS;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 public class Engine {
     private float secondsPerMove = 10;
     private Side side;
-    //private MultiLayerNetwork model;
+    private MultiLayerNetwork model;
     private MCTS mcts;
 
-    /*
     public Engine(MultiLayerNetwork model) {
         this.secondsPerMove = 10; // default
         this.model = model;
     }
-    */
+
 
     private boolean training;
 
@@ -29,8 +29,7 @@ public class Engine {
      * @return Move
      */
     public Move run(String position) {
-        //mcts = new MCTS(model, side, position);
-        mcts = new MCTS(side, position);
+        mcts = new MCTS(model, side, position);
         mcts.setTraining(training);
         long start = System.nanoTime();
         while (System.nanoTime() - start < 1_000_000_000L * secondsPerMove) {

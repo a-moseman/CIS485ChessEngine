@@ -1,12 +1,25 @@
 package cis485.chessengine.Engine;
 
+import org.deeplearning4j.nn.api.OptimizationAlgorithm;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.inputs.InputType;
+import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.nn.conf.layers.DenseLayer;
+import org.deeplearning4j.nn.conf.layers.OutputLayer;
+import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.weights.WeightInit;
+import org.nd4j.linalg.activations.Activation;
+import org.nd4j.linalg.learning.config.Adam;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
+
 public class ModelBuilder {
     private static int SEED = 1234;
     private static int CHANNELS = 8; // white, black, pawn, rook, ..., king
     private static double LEARNING_RATE = 0.001;
     private static double REGULARIZATION = 0.0001;
 
-    /*
     public static MultiLayerNetwork build() {
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 //.seed(SEED)
@@ -60,6 +73,4 @@ public class ModelBuilder {
 
         return model;
     }
-
-     */
 }

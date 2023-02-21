@@ -1,23 +1,27 @@
 package cis485.chessengine.Engine.Search;
 
+import cis485.chessengine.Engine.BoardConverter;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.dataset.DataSet;
+import org.nd4j.linalg.factory.Nd4j;
 
 import java.util.List;
 import java.util.Random;
 
 public class MCTS {
     private static final Random RANDOM = new Random();
-    //private MultiLayerNetwork model;
+    private MultiLayerNetwork model;
     private Side side;
     private Node root;
     private int visits;
     private boolean training;
 
-    //public MCTS(MultiLayerNetwork model, Side side, String position) {
-    public MCTS(Side side, String position) {
-        //this.model = model;
+    public MCTS(MultiLayerNetwork model, Side side, String position) {
+        this.model = model;
         this.side = side;
         Board board = new Board();
         board.loadFromFen(position);
@@ -87,7 +91,6 @@ public class MCTS {
                 node.totalSimBlackWins++;
                 break;
         }
-        /*
         if (training) {
             INDArray feature = BoardConverter.convert(node.position, false);
             float[] raw = new float[3];
@@ -106,13 +109,11 @@ public class MCTS {
             DataSet dataSet = new DataSet(feature, label);
             model.fit(dataSet);
         }
-         */
         backpropagate(node.parent, result);
     }
 
     //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
     private Node rollOutPolicy(Node node) {
-        /*
         int best = 0;
         INDArray[] y = new INDArray[node.children.length];
         for (int i = 0; i < node.children.length; i++) {
@@ -123,8 +124,6 @@ public class MCTS {
             }
         }
         return node.children[best];
-         */
-        return node.children[RANDOM.nextInt(node.children.length)];
     }
 
     /**

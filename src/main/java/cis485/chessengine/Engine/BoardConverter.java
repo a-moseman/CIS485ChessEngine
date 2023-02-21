@@ -1,6 +1,8 @@
 package cis485.chessengine.Engine;
 
 import com.github.bhlangonijr.chesslib.*;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
 
 public class BoardConverter {
     /**
@@ -9,13 +11,11 @@ public class BoardConverter {
      * @param board The current board state.
      * @return Board
      */
-    /*
     public static INDArray convert(Board board, boolean forMCTS) {
         INDArray data;
         if (forMCTS) {
             data = Nd4j.create(1, 8, 8, 8); //minibatch, channel, height, width
-        }
-        else {
+        } else {
             data = Nd4j.create(8, 8, 8); //channel, height, width
         }
         int x, y;
@@ -31,8 +31,7 @@ public class BoardConverter {
                     if (forMCTS) {
                         data.putScalar(new int[]{0, side == Side.WHITE ? 0 : 1, x, y}, 1);
                         data.putScalar(new int[]{0, piece.getPieceType().ordinal() + 2, x, y}, 1);
-                    }
-                    else {
+                    } else {
                         data.putScalar(new int[]{side == Side.WHITE ? 0 : 1, x, y}, 1);
                         data.putScalar(new int[]{piece.getPieceType().ordinal() + 2, x, y}, 1);
                     }
@@ -41,5 +40,4 @@ public class BoardConverter {
         }
         return data;
     }
-     */
 }
