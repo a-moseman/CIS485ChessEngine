@@ -40,4 +40,16 @@ public class BoardConverter {
         }
         return data;
     }
+
+    public static void main(String[] args) {
+        Board boardOne = new Board();
+        Board boardTwo = new Board();
+        Board boardThree = new Board();
+        boardTwo.loadFromFen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1");
+        INDArray convOne = BoardConverter.convert(boardOne, false);
+        INDArray convTwo = BoardConverter.convert(boardTwo, false);
+        INDArray convThree = BoardConverter.convert(boardThree, false);
+        System.out.println(convOne.equals(convTwo));
+        System.out.println(convOne.equals(convThree));
+    }
 }

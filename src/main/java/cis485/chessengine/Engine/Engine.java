@@ -12,6 +12,7 @@ public class Engine {
     private MCTS mcts;
 
     public Engine(MultiLayerNetwork model) {
+        this.mcts = new MCTS(model);
         this.secondsPerMove = 10; // default
         this.model = model;
     }
@@ -29,12 +30,12 @@ public class Engine {
      * @return Move
      */
     public Move run(String position) {
-        mcts = new MCTS(model, side, position);
-        mcts.setTraining(training);
+        mcts.initialize(side, position);
         long start = System.nanoTime();
         while (System.nanoTime() - start < 1_000_000_000L * secondsPerMove) {
             mcts.step();
         }
+        mcts.printEvaluations();
         return mcts.getBest();
     }
 
@@ -45,22 +46,8 @@ public class Engine {
         return mcts.getVisits();
     }
 
-    public float getSecondsPerMove() {
-        return secondsPerMove;
-    }
-
     public void setSecondsPerMove(float secondsPerMove) {
         this.secondsPerMove = secondsPerMove;
-    }
-
-    /*
-    public MultiLayerNetwork getModel() {
-        return model;
-    }
-     */
-
-    public Side getSide() {
-        return side;
     }
 
     public void setSide(Side side) {

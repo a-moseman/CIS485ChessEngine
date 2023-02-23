@@ -5,12 +5,8 @@ import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.dataset.DataSet;
-import org.nd4j.linalg.factory.Nd4j;
 
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class MCTS {
     private static final Random RANDOM = new Random();
@@ -18,21 +14,41 @@ public class MCTS {
     private Side side;
     private Node root;
     private int visits;
-    private boolean training;
 
-    public MCTS(MultiLayerNetwork model, Side side, String position) {
+    public MCTS(MultiLayerNetwork model) {
         this.model = model;
+    }
+
+    public void initialize(Side side, String position) {
+        // todo
         this.side = side;
         Board board = new Board();
         board.loadFromFen(position);
-        root = new Node(null, board, null);
-        visit(root);
-        visits = 0;
+        if (root == null) {
+            root = new Node(null, board, null);
+            visit(root);
+            visits = 0;
+        }
+        else {
+            // check if new position is child of old tree
+            for (int i = 0; i < root.children.length; i++) {
+                if (root.children[i].position.getZobristKey() == board.getZobristKey()) {
+                    root = root.children[i];
+                    if (!root.visited) {
+                        visit(root);
+                    }
+                    return;
+                }
+            }
+            // not of old tree, so make new one
+            root = new Node(null, board, null);
+            visit(root);
+            visits = 0;
+        }
     }
 
     private void visit(Node node) {
         visits++; // DEBUG
-
         node.visited = true;
         List<Move> legalMoves = node.position.legalMoves();
         node.children = new Node[legalMoves.size()];
@@ -49,12 +65,18 @@ public class MCTS {
 
     public void step() {
         Node leaf = traverse(root);
-        int result = rollout(leaf);
+        int result = rollout(leaf.position);
         backpropagate(leaf, result);
     }
 
     public Move getBest() {
         return bestChild(root).move;
+    }
+
+    public void printEvaluations() {
+        for (Node node : root.children) {
+            System.out.println(node.getTotalSimReward(side));
+        }
     }
 
     private Node traverse(Node node) {
@@ -67,12 +89,11 @@ public class MCTS {
         return pickUnvisited(node.children);
     }
 
-    private int rollout(Node node) {
-        while (isNonTerminal(node)) {
-            visit(node);
-            node = rollOutPolicy(node);
+    private int rollout(Board position) {
+        while (isNonTerminal(position)) {
+            position = rollOutPolicy(position.getFen());
         }
-        return result(node);
+        return result(position);
     }
 
     private void backpropagate(Node node, int result) {
@@ -91,39 +112,53 @@ public class MCTS {
                 node.totalSimBlackWins++;
                 break;
         }
-        if (training) {
-            INDArray feature = BoardConverter.convert(node.position, false);
-            float[] raw = new float[3];
-            switch (result) {
-                case 0:
-                    raw[2] = 1;
-                    break;
-                case 1:
-                    raw[0] = 1;
-                    break;
-                case -1:
-                    raw[1] = 1;
-                    break;
-            }
-            INDArray label = Nd4j.create(raw);
-            DataSet dataSet = new DataSet(feature, label);
-            model.fit(dataSet);
-        }
         backpropagate(node.parent, result);
     }
 
-    //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
-    private Node rollOutPolicy(Node node) {
-        int best = 0;
-        INDArray[] y = new INDArray[node.children.length];
-        for (int i = 0; i < node.children.length; i++) {
-            Node child = node.children[i];
-            y[i] = model.output(BoardConverter.convert(child.position, true));
-            if (getValue(y[i].toFloatVector()) > getValue(y[best].toFloatVector())) {
-                best = i;
+    class Eval implements Comparable<Eval> {
+        int index;
+        float prediction;
+
+        @Override
+        public int compareTo(Eval o) {
+            if (prediction == o.prediction) {
+                return 0;
+            }
+            else if (prediction < o.prediction) {
+                return 1;
+            }
+            else {
+                return -1;
             }
         }
-        return node.children[best];
+    }
+
+    //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
+    private Board rollOutPolicy(String fen) {
+        Board position = new Board();
+        position.loadFromFen(fen);
+        List<Move> legalMoves = position.legalMoves();
+        List<Eval> evals = new ArrayList<>();
+        for (int i = 0; i < legalMoves.size(); i++) {
+            position.doMove(legalMoves.get(i));
+            Eval eval = new Eval();
+            eval.prediction = getValue(model.output(BoardConverter.convert(position, true)).toFloatVector());
+            eval.index = i;
+            evals.add(eval);
+            position.undoMove();
+        }
+        Collections.sort(evals);
+        double r = RANDOM.nextDouble();
+        int chosen = 0;
+        for (int i = 0; i < evals.size(); i++) {
+            double t = 1d / (i + 2);
+            if (r > t) {
+                chosen = i;
+                break;
+            }
+        }
+        position.doMove(legalMoves.get(chosen));
+        return position;
     }
 
     /**
@@ -140,8 +175,8 @@ public class MCTS {
         }
     }
 
-    private boolean isNonTerminal(Node node) {
-        return !node.position.isDraw() && !node.position.isMated();
+    private boolean isNonTerminal(Board position) {
+        return !position.isDraw() && !position.isMated();
     }
 
     private boolean isFullyExpanded(Node node) {
@@ -193,9 +228,9 @@ public class MCTS {
         return node.children[best];
     }
 
-    private int result(Node node) {
-        if (node.position.isMated()) {
-            if (node.position.getSideToMove() != Side.WHITE) {
+    private int result(Board position) {
+        if (position.isMated()) {
+            if (position.getSideToMove() != Side.WHITE) {
                 return 1;
             }
             else {
@@ -207,9 +242,5 @@ public class MCTS {
 
     public int getVisits() {
         return visits;
-    }
-
-    public void setTraining(boolean training) {
-        this.training = training;
     }
 }
