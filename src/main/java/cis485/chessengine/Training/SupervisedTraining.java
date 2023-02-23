@@ -1,13 +1,11 @@
 package cis485.chessengine.Training;
 
 import cis485.chessengine.Engine.BoardConverter;
-import cis485.chessengine.Engine.Engine;
 import cis485.chessengine.Engine.ModelBuilder;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.SplitTestAndTrain;
@@ -15,24 +13,28 @@ import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.factory.Nd4j;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class Train {
+public class SupervisedTraining {
+    //https://jonathan-hui.medium.com/alphago-how-it-works-technically-26ddcc085319
     private static final Random RANDOM = new Random();
 
-    private static final int EPOCHS = 50;
-    private static final int WHITE_WINS = 1_000;
-    private static final int BLACK_WINS = 1_000;
-    private static final int TIES = 1_000;
-
+    private static final int SL_EPOCHS = 50;
+    private static final int SL_DATA_SIZE_MUL = 100_000;
+    private static final int SL_WHITE_WINS = SL_DATA_SIZE_MUL;
+    private static final int SL_BLACK_WINS = SL_DATA_SIZE_MUL;
+    private static final int SL_TIES = SL_DATA_SIZE_MUL;
+    private static final int SL_MINI_BATCH_SIZE = 64;
 
     public static void main(String[] args) {
         System.out.println("Supervised training:");
         System.out.println("\tGenerating positions...");
         long start = System.nanoTime();
-        DataSet data = generateData(WHITE_WINS, BLACK_WINS, TIES);
+        DataSet data = generateData();
         long end = System.nanoTime();
         double seconds = (double) (end - start) / 1_000_000_000;
         System.out.println("\tFinished after " + seconds + " seconds");
@@ -50,13 +52,13 @@ public class Train {
         normalizer.transform(testData);
 
         // set up model
-        MultiLayerNetwork model = ModelBuilder.build();
-        model.setListeners(new ScoreIterationListener(1));
+        MultiLayerNetwork model = ModelBuilder.Supervised.build();
 
         // train
         System.out.println("\tBeginning training...");
         start = System.nanoTime();
-        for (int i = 0; i < EPOCHS; i++) {
+        model.setInputMiniBatchSize(SL_MINI_BATCH_SIZE);
+        for (int i = 0; i < SL_EPOCHS; i++) {
             model.fit(trainingData);
         }
         end = System.nanoTime();
@@ -66,12 +68,20 @@ public class Train {
         Evaluation eval = new Evaluation(3);
         eval.eval(testData.getLabels(), model.output(testData.getFeatures()));
         System.out.println(eval.stats());
+
+        try {
+            model.save(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SLmodel.mdl"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private static DataSet generateData(int white, int black, int ties) {
+    private static DataSet generateData() {
         List<DataSet> data = new ArrayList<>();
-        int w, b, t = 0;
-        while (w < white && b < black && t < ties) {
+        int w = 0;
+        int b = 0;
+        int t = 0;
+        while (w + b + t < SL_WHITE_WINS + SL_BLACK_WINS + SL_TIES) {
             List<String> positions = new ArrayList<>();
             Board board = new Board();
             while (!board.isMated() && !board.isDraw()) {
@@ -82,7 +92,7 @@ public class Train {
             }
             float[][] result = new float[1][3];
             if (board.isDraw()) {
-                if (t >= ties) {
+                if (t >= SL_TIES) {
                     continue;
                 }
                 t++;
@@ -90,14 +100,14 @@ public class Train {
             }
             else if (board.isMated()) {
                 if (board.getSideToMove() == Side.BLACK) {
-                    if (w >= white) {
+                    if (w >= SL_WHITE_WINS) {
                         continue;
                     }
                     w++;
                     result[0][1] = 1;
                 }
                 else {
-                    if (b >= black) {
+                    if (b >= SL_BLACK_WINS) {
                         continue;
                     }
                     b++;
@@ -109,44 +119,7 @@ public class Train {
             DataSet dataSet = new DataSet(BoardConverter.convert(randomBoard, true), Nd4j.create(result));
             data.add(dataSet);
         }
+        System.out.println("\tGenerated data set with " + w + " white wins, " + b + " black wins, and " + t + " ties.");
         return DataSet.merge(data);
     }
-    /*
-    private static final int EPOCHS = 100;
-    private static final float SECONDS_PER_MOVE = 5;
-
-    public static void main(String[] args) {
-        MultiLayerNetwork model = ModelBuilder.build();
-        for (int epoch = 0; epoch < EPOCHS; epoch++) {
-            long start = System.nanoTime();
-            System.out.println("Start epoch " + epoch + ".");
-            runGame(model);
-            long end = System.nanoTime();
-            double minutes = (double) (end - start) / 1_000_000_000 / 60;
-            System.out.println("Epoch " + epoch + " finished in " + minutes + " minutes.");
-        }
-        System.out.println("Finished training.");
-        try {
-            System.out.println("Writing model to file.");
-            ModelSerializer.writeModel(model, new File("C:\\Users\\drewm\\Desktop\\EngineModels\\model.mdl"), true);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static void runGame(MultiLayerNetwork model) {
-        System.out.println("\tBegin self-play.");
-        Engine engine = new Engine(model);
-        engine.setSecondsPerMove(SECONDS_PER_MOVE);
-        engine.setTraining(true);
-        Board board = new Board();
-        while (!board.isMated() && !board.isDraw()) {
-            engine.setSide(board.getSideToMove());
-            board.doMove(engine.run(board.getFen()));
-            System.out.println(board);
-            System.out.println(engine.getVisits());
-        }
-    }
-
-     */
 }

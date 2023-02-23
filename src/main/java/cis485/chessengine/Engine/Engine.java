@@ -6,22 +6,17 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 public class Engine {
-    private float secondsPerMove = 10;
+    private final MultiLayerNetwork SL_MODEL;
+    private final MultiLayerNetwork RL_MODEL;
+    private float secondsPerMove;
     private Side side;
-    private MultiLayerNetwork model;
     private MCTS mcts;
 
-    public Engine(MultiLayerNetwork model) {
-        this.mcts = new MCTS(model);
+    public Engine(MultiLayerNetwork slModel, MultiLayerNetwork rlModel) {
+        this.SL_MODEL = slModel;
+        this.RL_MODEL = rlModel;
+        this.mcts = new MCTS(SL_MODEL, RL_MODEL);
         this.secondsPerMove = 10; // default
-        this.model = model;
-    }
-
-
-    private boolean training;
-
-    public void setTraining(boolean training) {
-        this.training = training;
     }
 
     /**
@@ -35,7 +30,7 @@ public class Engine {
         while (System.nanoTime() - start < 1_000_000_000L * secondsPerMove) {
             mcts.step();
         }
-        mcts.printEvaluations();
+        mcts.printEvaluations(); // DEBUG
         return mcts.getBest();
     }
 
