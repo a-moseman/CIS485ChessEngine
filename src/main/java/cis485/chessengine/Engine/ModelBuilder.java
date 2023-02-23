@@ -11,50 +11,39 @@ import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
-import org.nd4j.linalg.learning.config.Nesterovs;
+import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 public class ModelBuilder {
-    private static int SEED = 1234;
-    private static int CHANNELS = 9; // is piece, white, black, pawn, rook, ..., king
+    private static int CHANNELS = 8; // white, black, pawn, rook, ..., king
+    private static double LEARNING_RATE = 0.0001;
+    private static double REGULARIZATION = 0.001;
+    private static double DROPOUT = 0.2;
 
     public static MultiLayerNetwork build() {
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                //.seed(SEED)
                 .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                .updater(new Nesterovs(0.001, 0.9)) // todo: explore
-                .weightInit(WeightInit.XAVIER) // todo: explore
-                .activation(Activation.RELU) // todo: explore
+                .updater(new Adam(LEARNING_RATE))
+                .weightInit(WeightInit.NORMAL) // todo: explore
+                .activation(Activation.SIGMOID) // todo: explore
+                .l2(REGULARIZATION)
+                .dropOut(1 - DROPOUT)
                 .list()
                 .layer(new ConvolutionLayer.Builder(3, 3)
                         .nIn(CHANNELS)
                         .stride(1, 1)
-                        .nOut(8) // todo: explore
-                        .activation(Activation.RELU)
+                        .nOut(512)
                         .build())
                 .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
                                 .kernelSize(2, 2)
                                 .stride(2, 2)
                                 .build())
-                /*
-                .layer(new ConvolutionLayer.Builder(3, 3)
-                        .nIn(CHANNELS)
-                        .nOut(8)
-                        .stride(1, 1)
-                        .activation(Activation.RELU)
-                        .build())
-                .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                        .kernelSize(2, 2)
-                        .stride(2, 2)
-                        .build())
-                 */
                 .layer(new DenseLayer.Builder()
-                        .activation(Activation.RELU)
-                        .nOut(16)
+                        .nOut(1024)
                         .build())
-                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(2)
-                        .activation(Activation.SOFTMAX) // todo: test
+                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+                        .nOut(3)
+                        .activation(Activation.SOFTMAX)
                         .build())
                 .setInputType(InputType.convolutional(8, 8, CHANNELS))
                 .build();

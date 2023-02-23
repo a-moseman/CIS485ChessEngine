@@ -1,6 +1,8 @@
 package cis485.chessengine.Engine;
 
 import com.github.bhlangonijr.chesslib.*;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
 
 public class BoardConverter {
     /**
@@ -9,8 +11,13 @@ public class BoardConverter {
      * @param board The current board state.
      * @return Board
      */
-    public static float[][][][] convert(Board board) {
-        float[][][][] data = new float[1][9][8][8]; // minibatch, channel, height, width
+    public static INDArray convert(Board board, boolean forMCTS) {
+        INDArray data;
+        if (forMCTS) {
+            data = Nd4j.create(1, 8, 8, 8); //minibatch, channel, height, width
+        } else {
+            data = Nd4j.create(8, 8, 8); //channel, height, width
+        }
         int x, y;
         Square square;
         Piece piece;
@@ -21,12 +28,28 @@ public class BoardConverter {
                 piece = board.getPiece(square);
                 if (!piece.equals(Piece.NONE)) {
                     side = piece.getPieceSide();
-                    data[0][0][x][y] = 1;
-                    data[0][side == Side.WHITE ? 1 : 2][x][y] = 1;
-                    data[0][piece.getPieceType().ordinal() + 3][x][y] = 1;
+                    if (forMCTS) {
+                        data.putScalar(new int[]{0, side == Side.WHITE ? 0 : 1, x, y}, 1);
+                        data.putScalar(new int[]{0, piece.getPieceType().ordinal() + 2, x, y}, 1);
+                    } else {
+                        data.putScalar(new int[]{side == Side.WHITE ? 0 : 1, x, y}, 1);
+                        data.putScalar(new int[]{piece.getPieceType().ordinal() + 2, x, y}, 1);
+                    }
                 }
             }
         }
         return data;
+    }
+
+    public static void main(String[] args) {
+        Board boardOne = new Board();
+        Board boardTwo = new Board();
+        Board boardThree = new Board();
+        boardTwo.loadFromFen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1");
+        INDArray convOne = BoardConverter.convert(boardOne, false);
+        INDArray convTwo = BoardConverter.convert(boardTwo, false);
+        INDArray convThree = BoardConverter.convert(boardThree, false);
+        System.out.println(convOne.equals(convTwo));
+        System.out.println(convOne.equals(convThree));
     }
 }

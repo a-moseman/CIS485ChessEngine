@@ -5,34 +5,50 @@ import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.factory.Nd4j;
 
-import java.util.List;
-
-//https://www.analyticsvidhya.com/blog/2019/01/monte-carlo-tree-search-introduction-algorithm-deepmind-alphago/
-
-//https://int8.io/monte-carlo-tree-search-beginners-guide/
+import java.util.*;
 
 public class MCTS {
+    private static final Random RANDOM = new Random();
     private MultiLayerNetwork model;
     private Side side;
     private Node root;
     private int visits;
 
-    public MCTS(MultiLayerNetwork model, Side side, String position) {
+    public MCTS(MultiLayerNetwork model) {
         this.model = model;
+    }
+
+    public void initialize(Side side, String position) {
+        // todo
         this.side = side;
         Board board = new Board();
         board.loadFromFen(position);
-        root = new Node(null, board, null);
-        visit(root);
-        visits = 0;
+        if (root == null) {
+            root = new Node(null, board, null);
+            visit(root);
+            visits = 0;
+        }
+        else {
+            // check if new position is child of old tree
+            for (int i = 0; i < root.children.length; i++) {
+                if (root.children[i].position.getZobristKey() == board.getZobristKey()) {
+                    root = root.children[i];
+                    if (!root.visited) {
+                        visit(root);
+                    }
+                    return;
+                }
+            }
+            // not of old tree, so make new one
+            root = new Node(null, board, null);
+            visit(root);
+            visits = 0;
+        }
     }
 
     private void visit(Node node) {
         visits++; // DEBUG
-
         node.visited = true;
         List<Move> legalMoves = node.position.legalMoves();
         node.children = new Node[legalMoves.size()];
@@ -49,7 +65,7 @@ public class MCTS {
 
     public void step() {
         Node leaf = traverse(root);
-        int result = rollout(leaf);
+        int result = rollout(leaf.position);
         backpropagate(leaf, result);
     }
 
@@ -57,19 +73,27 @@ public class MCTS {
         return bestChild(root).move;
     }
 
+    public void printEvaluations() {
+        for (Node node : root.children) {
+            System.out.println(node.getTotalSimReward(side));
+        }
+    }
+
     private Node traverse(Node node) {
         while (isFullyExpanded(node)) {
+            if (node.children.length == 0) { // sometimes runs out of children
+                return node;
+            }
             node = bestUCT(node);
         }
         return pickUnvisited(node.children);
     }
 
-    private int rollout(Node node) {
-        while (isNonTerminal(node)) {
-            visit(node);
-            node = rollOutPolicy(node);
+    private int rollout(Board position) {
+        while (isNonTerminal(position)) {
+            position = rollOutPolicy(position.getFen());
         }
-        return result(node);
+        return result(position);
     }
 
     private void backpropagate(Node node, int result) {
@@ -77,38 +101,82 @@ public class MCTS {
             return;
         }
         node.totalVisits++;
-        node.totalSimReward += result;
+        switch (result) {
+            case 0:
+                node.totalSimTies++;
+                break;
+            case 1:
+                node.totalSimWhiteWins++;
+                break;
+            case -1:
+                node.totalSimBlackWins++;
+                break;
+        }
         backpropagate(node.parent, result);
     }
 
-    private Node rollOutPolicy(Node node) {
-        // get predicted outcomes for each position
-        // note: these are game results, not if this engine will win (i.e., they predict which side will win, not if it will win)
-        int best = 0;
-        INDArray x;
-        INDArray y;
-        int i;
-        float[][] predictions = new float[node.children.length][2];
-        int s = side == Side.WHITE ? 0 : 1;
-        for (i = 0; i < node.children.length; i++) {
-            x = Nd4j.create(BoardConverter.convert(node.children[i].position));
-            y = model.output(x);
-            predictions[i][0] = y.getFloat(0);
-            predictions[i][1] = y.getFloat(1);
-            if (predictions[i][s] < predictions[i][Math.abs(s - 1)]) { // ignore where other side is predicted better
-                continue;
+    class Eval implements Comparable<Eval> {
+        int index;
+        float prediction;
+
+        @Override
+        public int compareTo(Eval o) {
+            if (prediction == o.prediction) {
+                return 0;
             }
-            if (i > 0) {
-                if (predictions[best][s] < predictions[i][s]) {
-                    best = i;
-                }
+            else if (prediction < o.prediction) {
+                return 1;
+            }
+            else {
+                return -1;
             }
         }
-        return node.children[best];
     }
 
-    private boolean isNonTerminal(Node node) {
-        return !node.position.isDraw() && !node.position.isMated();
+    //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
+    private Board rollOutPolicy(String fen) {
+        Board position = new Board();
+        position.loadFromFen(fen);
+        List<Move> legalMoves = position.legalMoves();
+        List<Eval> evals = new ArrayList<>();
+        for (int i = 0; i < legalMoves.size(); i++) {
+            position.doMove(legalMoves.get(i));
+            Eval eval = new Eval();
+            eval.prediction = getValue(model.output(BoardConverter.convert(position, true)).toFloatVector());
+            eval.index = i;
+            evals.add(eval);
+            position.undoMove();
+        }
+        Collections.sort(evals);
+        double r = RANDOM.nextDouble();
+        int chosen = 0;
+        for (int i = 0; i < evals.size(); i++) {
+            double t = 1d / (i + 2);
+            if (r > t) {
+                chosen = i;
+                break;
+            }
+        }
+        position.doMove(legalMoves.get(chosen));
+        return position;
+    }
+
+    /**
+     * Solely for MCTS.rollOutPolicy.
+     * @param prediction The output of the model.
+     * @return float
+     */
+    private float getValue(float[] prediction) {
+        if (side == Side.WHITE) {
+            return prediction[0] - prediction[1] - prediction[2]; // white - black - draw
+        }
+        else {
+            return prediction[1] - prediction[0] - prediction[2]; // black - white - draw
+        }
+    }
+
+    private boolean isNonTerminal(Board position) {
+        return !position.isDraw() && !position.isMated();
     }
 
     private boolean isFullyExpanded(Node node) {
@@ -135,7 +203,7 @@ public class MCTS {
 
     private double uctOfChild(Node child) {
         double c = Math.sqrt(2);
-        double exploitationComponent = (double) child.totalSimReward / child.totalVisits;
+        double exploitationComponent = (double) child.getTotalSimReward(side) / child.totalVisits;
         double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
         return exploitationComponent + c * explorationComponent;
     }
@@ -153,20 +221,23 @@ public class MCTS {
         int best = 0;
         int i;
         for (i = 1; i < node.children.length; i++) {
-            if (node.children[best].totalVisits < node.children[i].totalVisits) {
+            if (node.children[best].getTotalSimReward(side) < node.children[i].getTotalSimReward(side)) {
                 best = i;
             }
         }
         return node.children[best];
     }
 
-    private int result(Node node) {
-        if (node.position.isMated()) {
-            if (node.position.getSideToMove() != side) {
+    private int result(Board position) {
+        if (position.isMated()) {
+            if (position.getSideToMove() != Side.WHITE) {
                 return 1;
             }
+            else {
+                return -1;
+            }
         }
-        return -1; // if loss or draw
+        return 0;
     }
 
     public int getVisits() {
