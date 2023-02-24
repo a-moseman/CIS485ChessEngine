@@ -13,9 +13,6 @@ public class UCI {
 
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
-        MultiLayerNetwork model = ModelBuilder.build();
-        engine = new Engine(model);
-        engine.setTraining(false);
         boolean running = true;
         while (running) {
             // Get input

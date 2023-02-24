@@ -4,7 +4,14 @@ import cis485.chessengine.Engine.BoardConverter;
 import cis485.chessengine.Engine.ModelBuilder;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
+import com.github.bhlangonijr.chesslib.game.Game;
+import com.github.bhlangonijr.chesslib.game.GameResult;
 import com.github.bhlangonijr.chesslib.move.Move;
+import com.github.bhlangonijr.chesslib.move.MoveList;
+import com.github.bhlangonijr.chesslib.pgn.GameLoader;
+import com.github.bhlangonijr.chesslib.pgn.PgnIterator;
+import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream;
+import org.apache.commons.compress.compressors.zstandard.ZstdUtils;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.DataSet;
@@ -15,9 +22,7 @@ import org.nd4j.linalg.factory.Nd4j;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class SupervisedTraining {
     //https://jonathan-hui.medium.com/alphago-how-it-works-technically-26ddcc085319
@@ -32,9 +37,9 @@ public class SupervisedTraining {
 
     public static void main(String[] args) {
         System.out.println("Supervised training:");
-        System.out.println("\tGenerating positions...");
+        System.out.println("\tLoading positions...");
         long start = System.nanoTime();
-        DataSet data = generateData();
+        DataSet data = loadData();
         long end = System.nanoTime();
         double seconds = (double) (end - start) / 1_000_000_000;
         System.out.println("\tFinished after " + seconds + " seconds");
@@ -74,6 +79,51 @@ public class SupervisedTraining {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static DataSet loadData() {
+        List<DataSet> data = new ArrayList<>();
+
+        PgnIterator pgnIterator;
+        try {
+            pgnIterator = new PgnIterator("C:\\Users\\drewm\\Desktop\\EngineTrainingData\\lichess_db_standard_rated_2023-01.pgn");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        Iterator<Game> iterator = pgnIterator.iterator();
+
+
+        while (iterator.hasNext()) {
+            Game game = iterator.next();
+            int whiteElo = game.getWhitePlayer().getElo();
+            int blackElo = game.getBlackPlayer().getElo();
+            int moveCount = game.getHalfMoves().size();
+            if (whiteElo < 2000 || blackElo < 2000 || moveCount < 1) {
+                continue;
+            }
+            GameResult gameResult = game.getResult();
+            float[][] result = new float[1][3];
+            switch (gameResult.toString()) {
+                case "WHITE_WON":
+                    result = new float[][]{{1, 0, 0}};
+                    break;
+                case "BLACK_WON":
+                    result = new float[][]{{0, 1, 0}};
+                    break;
+                case "TIE":
+                    result = new float[][]{{0, 0, 1}};
+                    break;
+            }
+            MoveList moveList = game.getHalfMoves();
+            String position = moveList.getFen(RANDOM.nextInt(moveList.size()));
+            Board board = new Board();
+            board.loadFromFen(position);
+            DataSet dataSet = new DataSet(BoardConverter.convert(board, true), Nd4j.create(result));
+            data.add(dataSet);
+        }
+        System.out.println("Loaded " + data.size() + " games.");
+        return DataSet.merge(data);
     }
 
     private static DataSet generateData() {
