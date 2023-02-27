@@ -10,6 +10,7 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import com.github.bhlangonijr.chesslib.move.MoveList;
 import com.github.bhlangonijr.chesslib.pgn.PgnIterator;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.SplitTestAndTrain;
@@ -23,19 +24,22 @@ public class SupervisedTraining {
     //https://jonathan-hui.medium.com/alphago-how-it-works-technically-26ddcc085319
     private static final Random RANDOM = new Random();
 
-    private static final int SL_EPOCHS = 50;
-    private static final int SL_DATA_SIZE_MUL = 100_000;
+    private static final int SL_EPOCHS = 1000;
+    private static final int SL_DATA_SIZE_MUL = 300_000;
     private static final int SL_WHITE_WINS = SL_DATA_SIZE_MUL;
     private static final int SL_BLACK_WINS = SL_DATA_SIZE_MUL;
     private static final int SL_TIES = SL_DATA_SIZE_MUL;
     private static final int SL_MINI_BATCH_SIZE = 32;
-    private static final int SL_MIN_ELO = 0;
+    private static final int SL_MIN_ELO = 1000;
 
     public static void main(String[] args) {
         System.out.println("Supervised training:");
         System.out.println("\tLoading positions...");
         long start = System.nanoTime();
         DataSet data = loadData();
+        data.save(new File("C:\\Users\\drewm\\Desktop\\EngineTrainingData\\training_data-" + System.currentTimeMillis() + ".dat"));
+        //DataSet data = new DataSet();
+        //data.load(new File("C:\\Users\\drewm\\Desktop\\EngineTrainingData\\training_data-(300_000+elo1000).dat"));
         long end = System.nanoTime();
         double seconds = (double) (end - start) / 1_000_000_000;
         System.out.println("\tFinished after " + seconds + " seconds");
@@ -44,7 +48,7 @@ public class SupervisedTraining {
 
         // split into training and test data
         data.shuffle();
-        SplitTestAndTrain testAndTrain = data.splitTestAndTrain(0.66);
+        SplitTestAndTrain testAndTrain = data.splitTestAndTrain(0.10);
         DataSet trainingData = testAndTrain.getTrain();
         DataSet testData = testAndTrain.getTrain();
 
@@ -68,9 +72,7 @@ public class SupervisedTraining {
             Evaluation eval = new Evaluation(3);
             eval.eval(testData.getLabels(), model.output(testData.getFeatures()));
             double valAcc = eval.accuracy();
-            eval.eval(trainingData.getLabels(), model.output(trainingData.getFeatures()));
-            double trainAcc = eval.accuracy();
-            System.out.println("\tACC: " + trainAcc + " | Val ACC: " + valAcc);
+            System.out.println("\tVal ACC: " + valAcc);
             if (valAcc > bestValAcc) {
                 bestValAcc = valAcc;
                 save(model);
@@ -85,7 +87,7 @@ public class SupervisedTraining {
 
     private static void save(MultiLayerNetwork model) {
         try {
-            model.save(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SLmodel-" + System.currentTimeMillis() + ".mdl"));
+            model.save(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SLmodel-best.mdl"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -144,8 +146,8 @@ public class SupervisedTraining {
             board.loadFromFen(position);
             DataSet dataSet = new DataSet(BoardConverter.convert(board, true), Nd4j.create(result));
             data.add(dataSet);
-            if (data.size() % 1000 == 0) {
-                System.out.println(data.size());
+            if (data.size() % 10_000 == 0) {
+                System.out.println((float) data.size() / (SL_DATA_SIZE_MUL * 3) * 100 + "%");
             }
         }
         System.out.println("Loaded " + data.size() + " games.");

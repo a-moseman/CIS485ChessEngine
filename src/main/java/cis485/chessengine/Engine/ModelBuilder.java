@@ -12,7 +12,6 @@ import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
-import org.nd4j.linalg.api.ops.impl.shape.Flatten2D;
 import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
@@ -35,7 +34,7 @@ public class ModelBuilder {
                     .weightDecay(WEIGHT_DECAY)
                     //.dropOut(1 - DROPOUT)
                     .list()
-                    .layer(new ConvolutionLayer.Builder(3, 3)
+                    .layer(new ConvolutionLayer.Builder(5, 5)
                             .nIn(CHANNELS)
                             .stride(1, 1)
                             .nOut(64)
@@ -53,23 +52,20 @@ public class ModelBuilder {
                             .kernelSize(2, 2)
                             .stride(2, 2)
                             .build())
-                    /*
                     .layer(new ConvolutionLayer.Builder(3, 3)
                             .stride(1, 1)
                             .padding(2, 2)
-                            .nOut(16)
+                            .nOut(64)
                             .build())
                     .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
                             .kernelSize(2, 2)
                             .stride(2, 2)
                             .build())
-
-                     */
                     .layer(new DenseLayer.Builder()
-                            .nOut(256)
+                            .nOut(128)
                             .build())
                     .layer(new DenseLayer.Builder()
-                            .nOut(256)
+                            .nOut(128)
                             .build())
                     .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
                             .nOut(CLASSES)
