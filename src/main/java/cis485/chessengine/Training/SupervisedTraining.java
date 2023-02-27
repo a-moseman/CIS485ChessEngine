@@ -8,16 +8,11 @@ import com.github.bhlangonijr.chesslib.game.Game;
 import com.github.bhlangonijr.chesslib.game.GameResult;
 import com.github.bhlangonijr.chesslib.move.Move;
 import com.github.bhlangonijr.chesslib.move.MoveList;
-import com.github.bhlangonijr.chesslib.pgn.GameLoader;
 import com.github.bhlangonijr.chesslib.pgn.PgnIterator;
-import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream;
-import org.apache.commons.compress.compressors.zstandard.ZstdUtils;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.SplitTestAndTrain;
-import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
-import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.factory.Nd4j;
 
 import java.io.File;
@@ -33,7 +28,8 @@ public class SupervisedTraining {
     private static final int SL_WHITE_WINS = SL_DATA_SIZE_MUL;
     private static final int SL_BLACK_WINS = SL_DATA_SIZE_MUL;
     private static final int SL_TIES = SL_DATA_SIZE_MUL;
-    private static final int SL_MINI_BATCH_SIZE = 64;
+    private static final int SL_MINI_BATCH_SIZE = 32;
+    private static final int SL_MIN_ELO = 0;
 
     public static void main(String[] args) {
         System.out.println("Supervised training:");
@@ -44,6 +40,8 @@ public class SupervisedTraining {
         double seconds = (double) (end - start) / 1_000_000_000;
         System.out.println("\tFinished after " + seconds + " seconds");
 
+        System.gc();
+
         // split into training and test data
         data.shuffle();
         SplitTestAndTrain testAndTrain = data.splitTestAndTrain(0.66);
@@ -51,10 +49,10 @@ public class SupervisedTraining {
         DataSet testData = testAndTrain.getTrain();
 
         // normalize
-        DataNormalization normalizer = new NormalizerStandardize();
-        normalizer.fit(trainingData);
-        normalizer.transform(trainingData);
-        normalizer.transform(testData);
+        //DataNormalization normalizer = new NormalizerStandardize();
+        //normalizer.fit(trainingData);
+        //normalizer.transform(trainingData);
+        //normalizer.transform(testData);
 
         // set up model
         MultiLayerNetwork model = ModelBuilder.Supervised.build();
@@ -63,19 +61,31 @@ public class SupervisedTraining {
         System.out.println("\tBeginning training...");
         start = System.nanoTime();
         model.setInputMiniBatchSize(SL_MINI_BATCH_SIZE);
+        double bestValAcc = 0;
         for (int i = 0; i < SL_EPOCHS; i++) {
             model.fit(trainingData);
+            System.out.println("Epoch " + (i + 1));
+            Evaluation eval = new Evaluation(3);
+            eval.eval(testData.getLabels(), model.output(testData.getFeatures()));
+            double valAcc = eval.accuracy();
+            eval.eval(trainingData.getLabels(), model.output(trainingData.getFeatures()));
+            double trainAcc = eval.accuracy();
+            System.out.println("\tACC: " + trainAcc + " | Val ACC: " + valAcc);
+            if (valAcc > bestValAcc) {
+                bestValAcc = valAcc;
+                save(model);
+                System.out.println("\tSaved model.");
+            }
+            System.gc();
         }
         end = System.nanoTime();
         seconds = (double) (end - start) / 1_000_000_000;
         System.out.println("\tFinished training after " + seconds + " seconds");
+    }
 
-        Evaluation eval = new Evaluation(3);
-        eval.eval(testData.getLabels(), model.output(testData.getFeatures()));
-        System.out.println(eval.stats());
-
+    private static void save(MultiLayerNetwork model) {
         try {
-            model.save(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SLmodel.mdl"));
+            model.save(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SLmodel-" + System.currentTimeMillis() + ".mdl"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -93,27 +103,40 @@ public class SupervisedTraining {
 
         Iterator<Game> iterator = pgnIterator.iterator();
 
+        int w = 0;
+        int b = 0;
+        int t = 0;
 
-        while (iterator.hasNext()) {
+        while (iterator.hasNext() && !(w >= SL_WHITE_WINS && b >= SL_BLACK_WINS && t >= SL_TIES)) {
             Game game = iterator.next();
             int whiteElo = game.getWhitePlayer().getElo();
             int blackElo = game.getBlackPlayer().getElo();
             int moveCount = game.getHalfMoves().size();
-            if (whiteElo < 2000 || blackElo < 2000 || moveCount < 1) {
+            if (whiteElo < SL_MIN_ELO || blackElo < SL_MIN_ELO || moveCount < 1) {
                 continue;
             }
             GameResult gameResult = game.getResult();
-            float[][] result = new float[1][3];
-            switch (gameResult.toString()) {
-                case "WHITE_WON":
-                    result = new float[][]{{1, 0, 0}};
-                    break;
-                case "BLACK_WON":
-                    result = new float[][]{{0, 1, 0}};
-                    break;
-                case "TIE":
-                    result = new float[][]{{0, 0, 1}};
-                    break;
+            float[][] result;
+            if (gameResult.toString().equals("WHITE_WON")) {
+                if (w >= SL_WHITE_WINS) {
+                    continue;
+                }
+                result = new float[][]{{1, 0, 0}};
+                w++;
+            }
+            else if (gameResult.toString().equals("BLACK_WON")) {
+                if (b >= SL_BLACK_WINS) {
+                    continue;
+                }
+                result = new float[][]{{0, 1, 0}};
+                b++;
+            }
+            else {
+                if (t >= SL_TIES) {
+                    continue;
+                }
+                result = new float[][]{{0, 0, 1}};
+                t++;
             }
             MoveList moveList = game.getHalfMoves();
             String position = moveList.getFen(RANDOM.nextInt(moveList.size()));
@@ -121,8 +144,12 @@ public class SupervisedTraining {
             board.loadFromFen(position);
             DataSet dataSet = new DataSet(BoardConverter.convert(board, true), Nd4j.create(result));
             data.add(dataSet);
+            if (data.size() % 1000 == 0) {
+                System.out.println(data.size());
+            }
         }
         System.out.println("Loaded " + data.size() + " games.");
+        System.out.println(w + ", " + b + ", " + t);
         return DataSet.merge(data);
     }
 
