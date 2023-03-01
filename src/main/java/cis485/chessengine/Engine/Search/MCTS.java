@@ -134,7 +134,8 @@ public class MCTS {
         int best = RANDOM.nextInt(root.children.length);
         int i;
         for (i = 0; i < root.children.length; i++) {
-            if (root.children[best].getTotalSimReward(side) < root.children[i].getTotalSimReward(side)) {
+            //if (root.children[best].getTotalSimReward(side) < root.children[i].getTotalSimReward(side)) {
+            if (root.children[best].totalVisits < root.children[i].totalVisits) {
                 best = i;
             }
         }
