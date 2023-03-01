@@ -8,8 +8,8 @@ import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
+import java.util.Scanner;
 
 public class Testing {
     public static void main(String[] args) {
@@ -21,13 +21,24 @@ public class Testing {
         }
         Engine engine = new Engine(model);
         engine.setSecondsPerMove(10);
+        engine.setSide(Side.WHITE);
         Board board = new Board();
+        Scanner scanner = new Scanner(System.in);
         while (!board.isMated() && !board.isDraw()) {
             System.out.println(board);
-            engine.setSide(board.getSideToMove());
-            Move move = engine.run(board.getFen());
-            engine.printEvaluations();
-            board.doMove(move);
+            if (board.getSideToMove() == Side.WHITE) {
+                Move move = engine.run(board.getFen());
+                engine.printEvaluations();
+                board.doMove(move);
+            }
+            else {
+                List<Move> legalMoves = board.legalMoves();
+                for (Move move : legalMoves) {
+                    System.out.print(move + ", ");
+                }
+                System.out.println();
+                board.doMove(scanner.nextLine());
+            }
         }
     }
 }
