@@ -6,16 +6,14 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 public class Engine {
-    private final MultiLayerNetwork SL_MODEL;
-    private final MultiLayerNetwork RL_MODEL;
+    private final MultiLayerNetwork MODEL;
     private float secondsPerMove;
     private Side side;
     private MCTS mcts;
 
-    public Engine(MultiLayerNetwork slModel, MultiLayerNetwork rlModel) {
-        this.SL_MODEL = slModel;
-        this.RL_MODEL = rlModel;
-        this.mcts = new MCTS(SL_MODEL, RL_MODEL);
+    public Engine(MultiLayerNetwork model) {
+        this.MODEL = model;
+        this.mcts = new MCTS(MODEL);
         this.secondsPerMove = 10; // default
     }
 

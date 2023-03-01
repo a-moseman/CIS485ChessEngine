@@ -8,54 +8,22 @@ import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 import java.util.*;
 
+//https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
 public class MCTS {
-    private static final Random RANDOM = new Random();
-    private final MultiLayerNetwork SL_MODEL;
-    private final MultiLayerNetwork RL_MODEL;
+    private final Random RANDOM = new Random();
+    private final MultiLayerNetwork MODEL;
     private Side side;
     private Node root;
     private int visits;
 
-    public MCTS(MultiLayerNetwork slModel, MultiLayerNetwork rlModel) {
-        this.SL_MODEL = slModel;
-        this.RL_MODEL = rlModel;
+    public MCTS(MultiLayerNetwork model) {
+        this.MODEL = model;
     }
 
-    public void initialize(Side side, String position) {
-        // todo
-        this.side = side;
-        Board board = new Board();
-        board.loadFromFen(position);
-        if (root == null) {
-            root = new Node(null, board, null);
-            visit(root);
-            visits = 0;
-        }
-        else {
-            // check if new position is child of old tree
-            for (int i = 0; i < root.children.length; i++) {
-                if (root.children[i].position.getZobristKey() == board.getZobristKey()) {
-                    root = root.children[i];
-                    if (!root.visited) {
-                        visit(root);
-                    }
-                    return;
-                }
-            }
-            // not of old tree, so make new one
-            root = new Node(null, board, null);
-            visit(root);
-            visits = 0;
-        }
-    }
-
-    private void visit(Node node) {
-        visits++; // DEBUG
-        node.visited = true;
+    private void add(Node node) {
         List<Move> legalMoves = node.position.legalMoves();
         node.children = new Node[legalMoves.size()];
-        int i;
-        for (i = 0; i < node.children.length; i++) {
+        for (int i = 0; i < node.children.length; i++) {
             Move move = legalMoves.get(i);
             Board newBoard = new Board();
             newBoard.loadFromFen(node.position.getFen()); // faster than Board.clone()
@@ -65,144 +33,69 @@ public class MCTS {
         }
     }
 
+    public void initialize(Side side, String position) {
+        this.side = side;
+        Board board = new Board();
+        board.loadFromFen(position);
+        root = new Node(null, board, null);
+        add(root);
+        visits = 0;
+    }
+
+
     public void step() {
         Node leaf = traverse(root);
-        //int result = rollout(leaf.position);
         int result = predict(leaf.position);
         backpropagate(leaf, result);
     }
 
     private int predict(Board position) {
-        int[] prediction = SL_MODEL.predict(BoardConverter.convert(position, true));
-        if (prediction[2] == 1) {
-            return 0;
-        }
-        else if (prediction[1] == 1) {
-            if (side == Side.BLACK) {
-                return 1;
-            }
-            else {
-                return -1;
-            }
-        }
-        else {
-            if (side == Side.WHITE) {
-                return 1;
-            }
-            else {
-                return -1;
-            }
-        }
-    }
-
-    public Move getBest() {
-        return bestChild(root).move;
+        return MODEL.predict(BoardConverter.convert(position, true))[0];
     }
 
     public void printEvaluations() {
+        System.out.println("Visits: " + visits);
         for (Node node : root.children) {
-            System.out.println(node.getTotalSimReward(side));
+            System.out.println(node.move + ": " + ((double) node.getTotalSimReward(side) / node.totalVisits) );
         }
     }
 
     private Node traverse(Node node) {
         while (isFullyExpanded(node)) {
-            if (node.children.length == 0) { // sometimes runs out of children
-                return node;
-            }
             node = bestUCT(node);
+            add(node);
+        }
+        if (node.children.length == 0) {
+            return node;
         }
         return pickUnvisited(node.children);
     }
 
     private void backpropagate(Node node, int result) {
+        visits++;
+        node.visited = true;
         if (root.equals(node)) {
             return;
         }
         node.totalVisits++;
         switch (result) {
             case 0:
-                node.totalSimTies++;
-                break;
-            case 1:
                 node.totalSimWhiteWins++;
                 break;
-            case -1:
+            case 1:
                 node.totalSimBlackWins++;
+                break;
+            case 2:
+                node.totalSimTies++;
                 break;
         }
         backpropagate(node.parent, result);
     }
 
-    /*
-    private int rollout(Board position) {
-        while (isNonTerminal(position)) {
-            position = rollOutPolicy(position.getFen());
-        }
-        return result(position);
-    }
-
-    class Eval implements Comparable<Eval> {
-        int index;
-        float prediction;
-
-        @Override
-        public int compareTo(Eval o) {
-            if (prediction == o.prediction) {
-                return 0;
-            }
-            else if (prediction < o.prediction) {
-                return 1;
-            }
-            else {
-                return -1;
-            }
-        }
-    }
-
-    //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
-    private Board rollOutPolicy(String fen) {
-        Board position = new Board();
-        position.loadFromFen(fen);
-        List<Move> legalMoves = position.legalMoves();
-        List<Eval> evals = new ArrayList<>();
-        for (int i = 0; i < legalMoves.size(); i++) {
-            position.doMove(legalMoves.get(i));
-            Eval eval = new Eval();
-            eval.prediction = getValue(model.output(BoardConverter.convert(position, true)).toFloatVector());
-            eval.index = i;
-            evals.add(eval);
-            position.undoMove();
-        }
-        Collections.sort(evals);
-        double r = RANDOM.nextDouble();
-        int chosen = 0;
-        for (int i = 0; i < evals.size(); i++) {
-            double t = 1d / (i + 2);
-            if (r > t) {
-                chosen = i;
-                break;
-            }
-        }
-        position.doMove(legalMoves.get(chosen));
-        return position;
-    }
-
-    private float getValue(float[] prediction) {
-        if (side == Side.WHITE) {
-            return prediction[0] - prediction[1] - prediction[2]; // white - black - draw
-        }
-        else {
-            return prediction[1] - prediction[0] - prediction[2]; // black - white - draw
-        }
-    }
-     */
-
-    private boolean isNonTerminal(Board position) {
-        return !position.isDraw() && !position.isMated();
-    }
-
     private boolean isFullyExpanded(Node node) {
+        if (node.children.length == 0) {
+            return false;
+        }
         for (Node child : node.children) {
             if (!child.visited) {
                 return false;
@@ -212,12 +105,9 @@ public class MCTS {
     }
 
     private Node bestUCT(Node node) {
-        double bestUct = uctOfChild(node.children[0]);
-        int best = 0;
+        int best = RANDOM.nextInt(node.children.length);
         for (int i = 0; i < node.children.length; i++) {
-            double uct = uctOfChild(node.children[i]);
-            if (bestUct < uct) {
-                bestUct = uct;
+            if (uctOfChild(node.children[best]) < uctOfChild(node.children[i])) {
                 best = i;
             }
         }
@@ -240,27 +130,15 @@ public class MCTS {
         return null;
     }
 
-    private Node bestChild(Node node) {
-        int best = 0;
+    public Move getBest() {
+        int best = RANDOM.nextInt(root.children.length);
         int i;
-        for (i = 1; i < node.children.length; i++) {
-            if (node.children[best].getTotalSimReward(side) < node.children[i].getTotalSimReward(side)) {
+        for (i = 0; i < root.children.length; i++) {
+            if (root.children[best].getTotalSimReward(side) < root.children[i].getTotalSimReward(side)) {
                 best = i;
             }
         }
-        return node.children[best];
-    }
-
-    private int result(Board position) {
-        if (position.isMated()) {
-            if (position.getSideToMove() != Side.WHITE) {
-                return 1;
-            }
-            else {
-                return -1;
-            }
-        }
-        return 0;
+        return root.children[best].move;
     }
 
     public int getVisits() {
