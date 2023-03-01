@@ -58,7 +58,7 @@ public class MCTS {
         Prediction prediction = new Prediction();
         if (position.isDraw()) {
             prediction.result = 2;
-            prediction.confidence = 1;
+            prediction.confidence = 100;
         }
         else if (position.isMated()){
             if (position.getSideToMove() == Side.BLACK) {
@@ -67,7 +67,7 @@ public class MCTS {
             else {
                 prediction.result = 1;
             }
-            prediction.confidence = 1;
+            prediction.confidence = 100;
         }
 
         float[] out = MODEL.output(BoardConverter.convert(position, true)).toFloatVector();
@@ -89,7 +89,8 @@ public class MCTS {
     public void printEvaluations() {
         System.out.println("Visits: " + visits);
         for (Node node : root.children) {
-            System.out.printf("%s: %.2f / %d = %.2f | (%.4f)\n", node.move, node.getTotalSimReward(side), node.totalVisits, ((double) node.getTotalSimReward(side) / node.totalVisits), uctOfChild(node));
+            System.out.printf("%s: %.2f\n", node.move, (double) node.getTotalSimReward(side) / node.totalVisits);
+            //System.out.printf("%s: %.2f / %d = %.2f | (%.4f)\n", node.move, node.getTotalSimReward(side), node.totalVisits, ((double) node.getTotalSimReward(side) / node.totalVisits), uctOfChild(node));
         }
     }
 
