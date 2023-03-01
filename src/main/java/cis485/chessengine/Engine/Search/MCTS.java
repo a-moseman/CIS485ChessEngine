@@ -55,6 +55,21 @@ public class MCTS {
     }
 
     private Prediction predict(Board position) {
+        Prediction prediction = new Prediction();
+        if (position.isDraw()) {
+            prediction.result = 2;
+            prediction.confidence = 1;
+        }
+        else if (position.isMated()){
+            if (position.getSideToMove() == Side.BLACK) {
+                prediction.result = 0;
+            }
+            else {
+                prediction.result = 1;
+            }
+            prediction.confidence = 1;
+        }
+
         float[] out = MODEL.output(BoardConverter.convert(position, true)).toFloatVector();
         int pred;
         if (out[0] > out[1] && out[0] > out[2]) { // white wins
@@ -66,7 +81,6 @@ public class MCTS {
         else { // draw
             pred = 2;
         }
-        Prediction prediction = new Prediction();
         prediction.result = pred;
         prediction.confidence = out[pred];
         return prediction;
@@ -75,7 +89,7 @@ public class MCTS {
     public void printEvaluations() {
         System.out.println("Visits: " + visits);
         for (Node node : root.children) {
-            System.out.printf("%s: %.2f / %d = %.2f\n", node.move, node.getTotalSimReward(side), node.totalVisits, ((double) node.getTotalSimReward(side) / node.totalVisits));
+            System.out.printf("%s: %.2f / %d = %.2f | (%.4f)\n", node.move, node.getTotalSimReward(side), node.totalVisits, ((double) node.getTotalSimReward(side) / node.totalVisits), uctOfChild(node));
         }
     }
 
@@ -124,8 +138,8 @@ public class MCTS {
     }
 
     private Node bestUCT(Node node) {
-        int best = RANDOM.nextInt(node.children.length);
-        for (int i = 0; i < node.children.length; i++) {
+        int best = 0;
+        for (int i = 1; i < node.children.length; i++) {
             if (uctOfChild(node.children[best]) < uctOfChild(node.children[i])) {
                 best = i;
             }
@@ -134,9 +148,10 @@ public class MCTS {
     }
 
     private double uctOfChild(Node child) {
+        // todo: double check math
         double c = Math.sqrt(2);
         double exploitationComponent = (double) child.getTotalSimReward(side) / child.totalVisits;
-        double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
+        double explorationComponent = Math.sqrt((Math.log(1 + child.parent.totalVisits) + 1) / child.totalVisits);
         return exploitationComponent + c * explorationComponent;
     }
 
@@ -150,9 +165,8 @@ public class MCTS {
     }
 
     public Move getBest() {
-        int best = RANDOM.nextInt(root.children.length);
-        int i;
-        for (i = 0; i < root.children.length; i++) {
+        int best = 0;
+        for (int i = 1; i < root.children.length; i++) {
             if (root.children[best].getTotalSimReward(side) < root.children[i].getTotalSimReward(side)) {
             //if (root.children[best].totalVisits < root.children[i].totalVisits) {
                 best = i;

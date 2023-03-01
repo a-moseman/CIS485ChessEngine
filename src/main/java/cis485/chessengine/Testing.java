@@ -20,12 +20,16 @@ public class Testing {
             throw new RuntimeException(e);
         }
         Engine engine = new Engine(model);
-        engine.setSecondsPerMove(1);
+        engine.setSecondsPerMove(10);
         engine.setSide(Side.WHITE);
         Board board = new Board();
         Scanner scanner = new Scanner(System.in);
         while (!board.isMated() && !board.isDraw()) {
             System.out.println(board);
+            engine.setSide(board.getSideToMove());
+            board.doMove(engine.run(board.getFen()));
+            engine.printEvaluations();
+            /*
             if (board.getSideToMove() == Side.WHITE) {
                 Move move = engine.run(board.getFen());
                 engine.printEvaluations();
@@ -39,6 +43,8 @@ public class Testing {
                 System.out.println();
                 board.doMove(scanner.nextLine());
             }
+
+             */
         }
     }
 }
