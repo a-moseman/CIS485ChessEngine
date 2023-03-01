@@ -45,18 +45,37 @@ public class MCTS {
 
     public void step() {
         Node leaf = traverse(root);
-        int result = predict(leaf.position);
-        backpropagate(leaf, result);
+        Prediction prediction = predict(leaf.position);
+        backpropagate(leaf, prediction);
     }
 
-    private int predict(Board position) {
-        return MODEL.predict(BoardConverter.convert(position, true))[0];
+    class Prediction {
+        int result;
+        double confidence;
+    }
+
+    private Prediction predict(Board position) {
+        float[] out = MODEL.output(BoardConverter.convert(position, true)).toFloatVector();
+        int pred;
+        if (out[0] > out[1] && out[0] > out[2]) { // white wins
+            pred = 0;
+        }
+        else if (out[1] > out[0] && out[1] > out[2]) { // black wins
+            pred = 1;
+        }
+        else { // draw
+            pred = 2;
+        }
+        Prediction prediction = new Prediction();
+        prediction.result = pred;
+        prediction.confidence = out[pred];
+        return prediction;
     }
 
     public void printEvaluations() {
         System.out.println("Visits: " + visits);
         for (Node node : root.children) {
-            System.out.println(node.move + ": " + ((double) node.getTotalSimReward(side) / node.totalVisits) );
+            System.out.printf("%s: %.2f / %d = %.2f\n", node.move, node.getTotalSimReward(side), node.totalVisits, ((double) node.getTotalSimReward(side) / node.totalVisits));
         }
     }
 
@@ -71,25 +90,25 @@ public class MCTS {
         return pickUnvisited(node.children);
     }
 
-    private void backpropagate(Node node, int result) {
+    private void backpropagate(Node node, Prediction prediction) {
         visits++;
         node.visited = true;
         if (root.equals(node)) {
             return;
         }
         node.totalVisits++;
-        switch (result) {
+        switch (prediction.result) {
             case 0:
-                node.totalSimWhiteWins++;
+                node.totalSimWhiteWins += prediction.confidence;
                 break;
             case 1:
-                node.totalSimBlackWins++;
+                node.totalSimBlackWins += prediction.confidence;
                 break;
             case 2:
-                node.totalSimTies++;
+                node.totalSimTies += prediction.confidence;
                 break;
         }
-        backpropagate(node.parent, result);
+        backpropagate(node.parent, prediction);
     }
 
     private boolean isFullyExpanded(Node node) {
@@ -134,8 +153,8 @@ public class MCTS {
         int best = RANDOM.nextInt(root.children.length);
         int i;
         for (i = 0; i < root.children.length; i++) {
-            //if (root.children[best].getTotalSimReward(side) < root.children[i].getTotalSimReward(side)) {
-            if (root.children[best].totalVisits < root.children[i].totalVisits) {
+            if (root.children[best].getTotalSimReward(side) < root.children[i].getTotalSimReward(side)) {
+            //if (root.children[best].totalVisits < root.children[i].totalVisits) {
                 best = i;
             }
         }

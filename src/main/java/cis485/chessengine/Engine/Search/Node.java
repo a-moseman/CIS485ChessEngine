@@ -10,9 +10,9 @@ public class Node {
     public Board position;
     public Move move;
     public int totalVisits;
-    public int totalSimWhiteWins;
-    public int totalSimBlackWins;
-    public int totalSimTies;
+    public double totalSimWhiteWins;
+    public double totalSimBlackWins;
+    public double totalSimTies;
     public boolean visited;
 
     public Node(Move move, Board position, Node parent) {
@@ -21,7 +21,7 @@ public class Node {
         this.parent = parent;
     }
 
-    public int getTotalSimReward(Side side) {
+    public double getTotalSimReward(Side side) {
         if (side == Side.WHITE) {
             return totalSimWhiteWins - totalSimBlackWins - totalSimTies;
         }

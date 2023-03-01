@@ -20,20 +20,14 @@ public class Testing {
             throw new RuntimeException(e);
         }
         Engine engine = new Engine(model);
+        engine.setSecondsPerMove(10);
         Board board = new Board();
         while (!board.isMated() && !board.isDraw()) {
             System.out.println(board);
-            if (board.getSideToMove() == Side.WHITE) {
-                engine.setSide(board.getSideToMove());
-                engine.setSecondsPerMove(10);
-                board.doMove(engine.run(board.getFen()));
-            }
-            else {
-                List<Move> legalMoves = board.legalMoves();
-                Collections.shuffle(legalMoves);
-                Move move = legalMoves.get(0);
-                board.doMove(move);
-            }
+            engine.setSide(board.getSideToMove());
+            Move move = engine.run(board.getFen());
+            engine.printEvaluations();
+            board.doMove(move);
         }
     }
 }

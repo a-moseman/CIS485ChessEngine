@@ -28,7 +28,6 @@ public class Engine {
         while (System.nanoTime() - start < 1_000_000_000L * secondsPerMove) {
             mcts.step();
         }
-        mcts.printEvaluations(); // DEBUG
         return mcts.getBest();
     }
 
@@ -45,5 +44,9 @@ public class Engine {
 
     public void setSide(Side side) {
         this.side = side;
+    }
+
+    public void printEvaluations() {
+        mcts.printEvaluations();
     }
 }
