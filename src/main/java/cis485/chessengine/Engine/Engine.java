@@ -46,6 +46,10 @@ public class Engine {
         this.side = side;
     }
 
+    public Side getSide() {
+        return side;
+    }
+
     public void printEvaluations() {
         mcts.printEvaluations();
     }

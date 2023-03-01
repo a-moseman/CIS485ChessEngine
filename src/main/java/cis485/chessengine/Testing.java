@@ -20,7 +20,7 @@ public class Testing {
             throw new RuntimeException(e);
         }
         Engine engine = new Engine(model);
-        engine.setSecondsPerMove(10);
+        engine.setSecondsPerMove(1);
         engine.setSide(Side.WHITE);
         Board board = new Board();
         Scanner scanner = new Scanner(System.in);
