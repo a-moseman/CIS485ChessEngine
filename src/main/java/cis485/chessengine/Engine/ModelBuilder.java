@@ -52,6 +52,7 @@ public class ModelBuilder {
                             .kernelSize(2, 2)
                             .stride(2, 2)
                             .build())
+                    /*
                     .layer(new ConvolutionLayer.Builder(3, 3)
                             .stride(1, 1)
                             .padding(2, 2)
@@ -61,6 +62,8 @@ public class ModelBuilder {
                             .kernelSize(2, 2)
                             .stride(2, 2)
                             .build())
+
+                     */
                     .layer(new DenseLayer.Builder()
                             .nOut(128)
                             .build())
