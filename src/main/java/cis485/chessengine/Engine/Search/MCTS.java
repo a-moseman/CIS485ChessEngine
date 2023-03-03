@@ -38,6 +38,8 @@ public class MCTS {
         Board board = new Board();
         board.loadFromFen(position);
         root = new Node(null, board, null);
+        root.visited = true;
+        root.totalVisits = 1;
         add(root);
         visits = 0;
     }
@@ -108,9 +110,7 @@ public class MCTS {
     private void backpropagate(Node node, Prediction prediction) {
         visits++;
         node.visited = true;
-        if (root.equals(node)) {
-            return;
-        }
+
         node.totalVisits++;
         switch (prediction.result) {
             case 0:
@@ -123,6 +123,10 @@ public class MCTS {
                 node.totalSimTies += prediction.confidence;
                 break;
         }
+        if (root.equals(node)) {
+            return;
+        }
+
         backpropagate(node.parent, prediction);
     }
 
@@ -149,10 +153,9 @@ public class MCTS {
     }
 
     private double uctOfChild(Node child) {
-        // todo: double check math
         double c = Math.sqrt(2);
         double exploitationComponent = (double) child.getTotalSimReward(side) / child.totalVisits;
-        double explorationComponent = Math.sqrt((Math.log(1 + child.parent.totalVisits) + 1) / child.totalVisits);
+        double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
         return exploitationComponent + c * explorationComponent;
     }
 
