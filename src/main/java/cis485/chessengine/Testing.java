@@ -5,20 +5,15 @@ import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
-import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Scanner;
 
 public class Testing {
     public static void main(String[] args) {
@@ -29,7 +24,7 @@ public class Testing {
             throw new RuntimeException(e);
         }
         Engine engine = new Engine(model);
-        engine.setSecondsPerMove(1f);
+        engine.setSecondsPerMove(10f);
         engine.setSide(Side.WHITE);
 
         Board board = new Board();
