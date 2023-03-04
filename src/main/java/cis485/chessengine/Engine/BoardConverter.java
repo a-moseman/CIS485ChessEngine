@@ -6,7 +6,6 @@ import org.nd4j.linalg.factory.Nd4j;
 
 public class BoardConverter {
     /**
-     * TODO: explore not using pooling layers like AlphaZero and ConvChess
      * Convert board using one hot encoding.
      * @param board The current board state.
      * @return Board
@@ -24,13 +23,11 @@ public class BoardConverter {
         Side side;
         for (x = 0; x < 8; x++) {
             for (y = 0; y < 8; y++) {
-                square = Square.squareAt(x + y * 8); // todo: confirm x + y * 8 is accurate
+                square = Square.squareAt(x + y * 8);
                 piece = board.getPiece(square);
                 if (!piece.equals(Piece.NONE)) {
                     side = piece.getPieceSide();
-                    int s = side == Side.WHITE ? 0 : 6;
-                    int p = piece.getPieceType().ordinal();
-                    int i = s + p;
+                    int i = (side == Side.WHITE ? 0 : 6) + piece.getPieceType().ordinal();
                     if (forMCTS) {
                         data.putScalar(new int[]{0, i, x, y}, 1);
                     } else {
