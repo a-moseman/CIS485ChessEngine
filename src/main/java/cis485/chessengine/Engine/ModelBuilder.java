@@ -24,14 +24,11 @@ public class ModelBuilder {
         private static final double LEARNING_RATE = 1e-3;
         private static final double WEIGHT_DECAY = 0.00001;
         private static final double DROPOUT = 0.2;
-
         private static final int LAYER_BLOCKS = 8;
         private static final int FILTERS = 128;
 
-
-
         public static MultiLayerNetwork build() {
-            Layer[] layers = new Layer[8 * 2 + 1];
+            Layer[] layers = new Layer[LAYER_BLOCKS * 2 + 1];
             for (int i = 0; i < LAYER_BLOCKS; i++) {
                 layers[i * 2] = new ConvolutionLayer.Builder(3, 3)
                         .nIn(CHANNELS)
@@ -44,8 +41,6 @@ public class ModelBuilder {
                     .nOut(CLASSES)
                     .activation(Activation.SOFTMAX)
                     .build();
-
-
             MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
                     .updater(new Adam(LEARNING_RATE))
