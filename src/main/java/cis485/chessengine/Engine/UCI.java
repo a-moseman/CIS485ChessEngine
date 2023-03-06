@@ -4,6 +4,8 @@ import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 public class UCI {
@@ -12,10 +14,14 @@ public class UCI {
     private static String fen = INIT_FEN;
 
     public static void main(String[] args) {
-        Scanner input = new Scanner(System.in);
-        MultiLayerNetwork model = ModelBuilder.build();
+        MultiLayerNetwork model = null;
+        try {
+            model = MultiLayerNetwork.load(new File("SL_MODEL_V1.mdl"), false);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         engine = new Engine(model);
-        engine.setTraining(false);
+        Scanner input = new Scanner(System.in);
         boolean running = true;
         while (running) {
             // Get input

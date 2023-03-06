@@ -4,29 +4,41 @@ import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Node {
-    public Node parent;
-    public Node[] children;
+    public List<Node> parents;
+    public List<Node> children;
     public Board position;
     public Move move;
     public int totalVisits;
-    public int totalSimWhiteWins;
-    public int totalSimBlackWins;
-    public int totalSimTies;
+    public double totalSimWhiteWins;
+    public double totalSimBlackWins;
+    public double totalSimTies;
     public boolean visited;
 
-    public Node(Move move, Board position, Node parent) {
+    public Node(Move move, Board position) {
         this.move = move;
         this.position = position;
-        this.parent = parent;
+        this.parents = new ArrayList<>();
+        this.children = new ArrayList<>();
     }
 
-    public int getTotalSimReward(Side side) {
+    public double getTotalSimReward(Side side) {
         if (side == Side.WHITE) {
             return totalSimWhiteWins - totalSimBlackWins - totalSimTies;
         }
         else {
             return totalSimBlackWins - totalSimWhiteWins - totalSimTies;
         }
+    }
+
+    public double getTotalParentVisits() {
+        double v = 0;
+        for (Node parent : parents) {
+            v += parent.totalVisits;
+        }
+        return v / parents.size();
     }
 }
