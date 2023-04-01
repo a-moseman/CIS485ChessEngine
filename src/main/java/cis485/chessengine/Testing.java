@@ -1,11 +1,16 @@
 package cis485.chessengine;
 
 import cis485.chessengine.Engine.Engine;
+import cis485.chessengine.Engine.ModelBuilder;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
+import org.deeplearning4j.core.storage.StatsStorage;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.ui.api.UIServer;
+import org.deeplearning4j.ui.model.stats.StatsListener;
+import org.deeplearning4j.ui.model.storage.InMemoryStatsStorage;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -17,12 +22,15 @@ import java.util.HashMap;
 
 public class Testing {
     public static void main(String[] args) {
-        MultiLayerNetwork model = null;
+        MultiLayerNetwork model;
         try {
-            model = MultiLayerNetwork.load(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SL_MODEL_V1.mdl"), false);
+            model = MultiLayerNetwork.load(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SL_MODEL_V2.mdl"), false);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        System.out.println(model.numParams());
+
         Engine engine = new Engine(model);
         engine.setSecondsPerMove(10f);
         engine.setSide(Side.WHITE);

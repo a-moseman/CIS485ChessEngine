@@ -5,25 +5,23 @@ import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
 
 import java.util.*;
 
 //https://ai.stackexchange.com/questions/16238/how-is-the-rollout-from-the-mcts-implemented-in-both-of-the-alphago-zero-and-the
 public class MCTS {
-    private final Random RANDOM = new Random();
     private final MultiLayerNetwork MODEL;
     private Side side;
     private Node root;
     private int visits;
-    private HashMap<Long, Node> transpositionTable;
 
     public MCTS(MultiLayerNetwork model) {
         this.MODEL = model;
-        this.transpositionTable = new HashMap<>();
     }
 
     public void initialize(Side side, String position) {
-        transpositionTable.clear();
         this.side = side;
         Board board = new Board();
         board.loadFromFen(position);
@@ -46,6 +44,7 @@ public class MCTS {
     }
 
     private Prediction predict(Board position) {
+        visits++;
         Prediction prediction = new Prediction();
         if (position.isDraw()) {
             prediction.result = 2;
@@ -60,8 +59,10 @@ public class MCTS {
             }
             prediction.confidence = 100;
         }
-
-        float[] out = MODEL.output(BoardConverter.convert(position, true)).toFloatVector();
+        float[][][][] board = new float[][][][]{BoardConverter.oneHotEncode(position)};
+        INDArray input = Nd4j.create(board);
+        INDArray output = MODEL.output(input, false);
+        float[] out = output.toFloatVector();
         int pred;
         if (out[0] > out[1] && out[0] > out[2]) { // white wins
             pred = 0;
@@ -81,7 +82,6 @@ public class MCTS {
         System.out.println("Visits: " + visits);
         for (Node node : root.children) {
             System.out.printf("%s: %.2f\n", node.move, (double) node.getTotalSimReward(side) / node.totalVisits);
-            //System.out.printf("%s: %.2f / %d = %.2f | (%.4f)\n", node.move, node.getTotalSimReward(side), node.totalVisits, ((double) node.getTotalSimReward(side) / node.totalVisits), uctOfChild(node));
         }
     }
 
@@ -150,16 +150,7 @@ public class MCTS {
         childBoard.loadFromFen(node.position.getFen());
         Move move = legalMoves.get(node.children.size());
         childBoard.doMove(move);
-        // check if transposition
-        Node child;
-        if (transpositionTable.containsKey(childBoard.getZobristKey())) {
-            child = transpositionTable.get(childBoard.getZobristKey());
-        }
-        else {
-            visits++; // should only be unique positions
-            child = new Node(move, childBoard);
-
-        }
+        Node child = new Node(move, childBoard);
         node.children.add(child);
         child.parents.add(node);
         return child;
@@ -169,7 +160,6 @@ public class MCTS {
         int best = 0;
         for (int i = 1; i < root.children.size(); i++) {
             if (root.children.get(best).getTotalSimReward(side) < root.children.get(i).getTotalSimReward(side)) {
-            //if (root.children[best].totalVisits < root.children[i].totalVisits) {
                 best = i;
             }
         }

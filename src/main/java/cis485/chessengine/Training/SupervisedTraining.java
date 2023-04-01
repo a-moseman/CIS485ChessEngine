@@ -1,88 +1,79 @@
 package cis485.chessengine.Training;
 
-import cis485.chessengine.Engine.BoardConverter;
 import cis485.chessengine.Engine.ModelBuilder;
-import com.github.bhlangonijr.chesslib.Board;
-import com.github.bhlangonijr.chesslib.Side;
-import com.github.bhlangonijr.chesslib.game.Game;
-import com.github.bhlangonijr.chesslib.game.GameResult;
-import com.github.bhlangonijr.chesslib.move.Move;
-import com.github.bhlangonijr.chesslib.move.MoveList;
-import com.github.bhlangonijr.chesslib.pgn.PgnIterator;
+import org.deeplearning4j.core.storage.StatsStorage;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.ui.VertxUIServer;
+import org.deeplearning4j.ui.model.stats.StatsListener;
+import org.deeplearning4j.ui.model.storage.InMemoryStatsStorage;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.SplitTestAndTrain;
+import org.nd4j.linalg.dataset.ViewIterator;
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.factory.Nd4j;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
 
 public class SupervisedTraining {
     //https://jonathan-hui.medium.com/alphago-how-it-works-technically-26ddcc085319
-    private static final Random RANDOM = new Random();
 
-    private static final int SL_EPOCHS = 1000;
-    private static final int SL_DATA_SIZE_MUL = 100_000;
-
-    private static final int SL_WHITE_WINS = SL_DATA_SIZE_MUL;
-    private static final int SL_BLACK_WINS = SL_DATA_SIZE_MUL;
-    private static final int SL_TIES = SL_DATA_SIZE_MUL;
-    private static final int SL_MINI_BATCH_SIZE = 16;
-    private static final int SL_MIN_ELO = 2000;
-    private static final double SL_TRAINING_FRACTION = 0.66;
+    private static final int EPOCHS = 500;
+    private static final int MINI_BATCH_SIZE = 512;
 
     public static void main(String[] args) {
+        Nd4j.getMemoryManager().togglePeriodicGc(true);
+        Nd4j.getMemoryManager().setAutoGcWindow(5_000);
+
         System.out.println("Supervised training:");
         System.out.println("\tLoading positions...");
         long start = System.nanoTime();
-        //DataSet data = loadData();
+        DataSet data = SLDataLoader.generate();
         //data.save(new File("C:\\Users\\drewm\\Desktop\\EngineTrainingData\\training_data-" + System.currentTimeMillis() + ".dat"));
-        DataSet data = new DataSet();
-        data.load(new File("C:\\Users\\drewm\\Desktop\\EngineTrainingData\\training_data-(300_000+elo2000).dat"));
+        //DataSet data = new DataSet();
+        //data.load(new File("C:\\Users\\drewm\\Desktop\\EngineTrainingData\\training_data-(300_000+elo2000)-v3(CPU).dat"));
         long end = System.nanoTime();
         double seconds = (double) (end - start) / 1_000_000_000;
         System.out.println("\tFinished after " + seconds + " seconds");
-
-        System.gc();
+        System.out.println("Dataset Records: " + data.getLabels().size(0));
 
         // split into training and test data
         data.shuffle();
-        SplitTestAndTrain testAndTrain = data.splitTestAndTrain(SL_TRAINING_FRACTION);
+        SplitTestAndTrain testAndTrain = data.splitTestAndTrain(0.66);
         DataSet trainingData = testAndTrain.getTrain();
-        DataSet testData = testAndTrain.getTrain();
-
-        // normalize
-        //DataNormalization normalizer = new NormalizerStandardize();
-        //normalizer.fit(trainingData);
-        //normalizer.transform(trainingData);
-        //normalizer.transform(testData);
+        DataSet validationData = testAndTrain.getTrain();
 
         // set up model
         MultiLayerNetwork model = ModelBuilder.Supervised.build();
 
+        setUpUI(model);
+        model.setInputMiniBatchSize(MINI_BATCH_SIZE);
+        train(model, trainingData, validationData, EPOCHS, MINI_BATCH_SIZE);
+    }
+
+    private static void train(MultiLayerNetwork model, DataSet trainingData, DataSet validationData, int epochs, int minibatches) {
         // train
         System.out.println("\tBeginning training...");
-        start = System.nanoTime();
-        model.setInputMiniBatchSize(SL_MINI_BATCH_SIZE);
+        long start = System.nanoTime();
+
+        model.setInputMiniBatchSize(minibatches);
+        DataSetIterator trainingIterator = new ViewIterator(trainingData, minibatches);
         double bestValAcc = 0;
-        for (int i = 0; i < SL_EPOCHS; i++) {
-            model.fit(trainingData);
+        for (int i = 0; i < epochs; i++) {
+            System.gc();
+            model.fit(trainingIterator);
             System.out.println("Epoch " + (i + 1) + " finished.");
-            Evaluation eval = new Evaluation(3);
-            eval.eval(testData.getLabels(), model.output(testData.getFeatures()));
-            double valAcc = eval.accuracy();
+            double valAcc = validate(model, validationData);
             System.out.println("\tVal ACC: " + valAcc);
             if (valAcc > bestValAcc) {
                 bestValAcc = valAcc;
                 save(model);
                 System.out.println("\tSaved model.");
             }
-            System.gc();
         }
-        end = System.nanoTime();
-        seconds = (double) (end - start) / 1_000_000_000;
+        long end = System.nanoTime();
+        double seconds = (double) (end - start) / 1_000_000_000;
         System.out.println("\tFinished training after " + seconds + " seconds");
     }
 
@@ -94,113 +85,32 @@ public class SupervisedTraining {
         }
     }
 
-    private static DataSet loadData() {
-        List<DataSet> data = new ArrayList<>();
-
-        PgnIterator pgnIterator;
+    private static void setUpUI(MultiLayerNetwork model) {
+        // set up the ui: http://localhost:9000/train/overview
+        VertxUIServer uiServer = VertxUIServer.getInstance(9000, false, null);
+        StatsStorage statsStorage = new InMemoryStatsStorage();
+        uiServer.attach(statsStorage);
         try {
-            pgnIterator = new PgnIterator("C:\\Users\\drewm\\Desktop\\EngineTrainingData\\lichess_db_standard_rated_2023-01.pgn");
+            uiServer.start();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
-        Iterator<Game> iterator = pgnIterator.iterator();
-
-        int w = 0;
-        int b = 0;
-        int t = 0;
-        int i = 0;
-        while (iterator.hasNext() && !(w >= SL_WHITE_WINS && b >= SL_BLACK_WINS && t >= SL_TIES)) {
-            i++;
-            Game game = iterator.next();
-            int whiteElo = game.getWhitePlayer().getElo();
-            int blackElo = game.getBlackPlayer().getElo();
-            int moveCount = game.getHalfMoves().size();
-            if (whiteElo < SL_MIN_ELO || blackElo < SL_MIN_ELO || moveCount < 1) {
-                continue;
-            }
-            GameResult gameResult = game.getResult();
-            float[][] result;
-            if (gameResult.toString().equals("WHITE_WON")) {
-                if (w >= SL_WHITE_WINS) {
-                    continue;
-                }
-                result = new float[][]{{1, 0, 0}};
-                w++;
-            }
-            else if (gameResult.toString().equals("BLACK_WON")) {
-                if (b >= SL_BLACK_WINS) {
-                    continue;
-                }
-                result = new float[][]{{0, 1, 0}};
-                b++;
-            }
-            else {
-                if (t >= SL_TIES) {
-                    continue;
-                }
-                result = new float[][]{{0, 0, 1}};
-                t++;
-            }
-            MoveList moveList = game.getHalfMoves();
-            String position = moveList.getFen(RANDOM.nextInt(moveList.size()));
-            Board board = new Board();
-            board.loadFromFen(position);
-            DataSet dataSet = new DataSet(BoardConverter.convert(board, true), Nd4j.create(result));
-            data.add(dataSet);
-            if (data.size() % 10_000 == 0) {
-                System.out.println((float) data.size() / (SL_DATA_SIZE_MUL * 3) * 100 + "% " + "(" + i + ")");
-            }
-        }
-        System.out.println("Loaded " + data.size() + " games.");
-        System.out.println(w + ", " + b + ", " + t);
-        return DataSet.merge(data);
+        model.setListeners(new StatsListener(statsStorage));
     }
 
-    private static DataSet generateData() {
-        List<DataSet> data = new ArrayList<>();
-        int w = 0;
-        int b = 0;
-        int t = 0;
-        while (w + b + t < SL_WHITE_WINS + SL_BLACK_WINS + SL_TIES) {
-            List<String> positions = new ArrayList<>();
-            Board board = new Board();
-            while (!board.isMated() && !board.isDraw()) {
-                List<Move> legalMoves = board.legalMoves();
-                Move move = legalMoves.get(RANDOM.nextInt(legalMoves.size()));
-                board.doMove(move);
-                positions.add(board.getFen());
-            }
-            float[][] result = new float[1][3];
-            if (board.isDraw()) {
-                if (t >= SL_TIES) {
-                    continue;
-                }
-                t++;
-                result[0][2] = 1;
-            }
-            else if (board.isMated()) {
-                if (board.getSideToMove() == Side.BLACK) {
-                    if (w >= SL_WHITE_WINS) {
-                        continue;
-                    }
-                    w++;
-                    result[0][1] = 1;
-                }
-                else {
-                    if (b >= SL_BLACK_WINS) {
-                        continue;
-                    }
-                    b++;
-                    result[0][0] = 1;
-                }
-            }
-            Board randomBoard = new Board();
-            randomBoard.loadFromFen(positions.get(RANDOM.nextInt(positions.size())));
-            DataSet dataSet = new DataSet(BoardConverter.convert(randomBoard, true), Nd4j.create(result));
-            data.add(dataSet);
+    private static double validate(MultiLayerNetwork model, DataSet data) {
+        DataSetIterator iterator = new ViewIterator(data, MINI_BATCH_SIZE);
+        double validationAccuracy = 0;
+        int i = 0;
+        while (iterator.hasNext()) {
+            System.gc();
+            i++;
+            DataSet v = iterator.next();
+            Evaluation evaluation = new Evaluation(3);
+            evaluation.eval(v.getLabels(), model.output(v.getFeatures()));
+            validationAccuracy += evaluation.accuracy();
         }
-        System.out.println("\tGenerated data set with " + w + " white wins, " + b + " black wins, and " + t + " ties.");
-        return DataSet.merge(data);
+        System.out.println(validationAccuracy + " / " + i); // DEBUG
+        return validationAccuracy / i;
     }
 }
