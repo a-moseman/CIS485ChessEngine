@@ -3,10 +3,15 @@ package cis485.chessengine.Engine;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.nd4j.shade.guava.util.concurrent.MoreExecutors;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class UCI {
     private static final String INIT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -15,12 +20,21 @@ public class UCI {
 
     public static void main(String[] args) {
         MultiLayerNetwork model = null;
+        String modelVersion = System.getProperty("user.dir") + "\\src\\main\\java\\cis485\\chessengine\\Engine\\Model\\SL_MODEL_V1.mdl";
         try {
-            model = MultiLayerNetwork.load(new File("SL_MODEL_V1.mdl"), false);
+            model = MultiLayerNetwork.load(new File(modelVersion), false);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         engine = new Engine(model);
+
+        // Thread pool management
+        final int MAX_THREADS = 5;
+        final int THREAD_HANG_DURATION = 10; //in seconds
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(MAX_THREADS);
+        ExecutorService executorService = MoreExecutors.getExitingExecutorService(executor, THREAD_HANG_DURATION, TimeUnit.SECONDS);
+
+        // UCI calls
         Scanner input = new Scanner(System.in);
         boolean running = true;
         while (running) {
@@ -29,20 +43,36 @@ public class UCI {
             String[] command = raw.split(" ");
 
             // Quit the program
-            if ("quit".equals(command[0])) running = false;
-
-            else if ("isready".equals(command[0])) {
-                isready();
+            if ("quit".equals(command[0])) {
+                running = false;
+                System.out.println("Terminating...");
+            } else if ("isready".equals(command[0])) {
+                executorService.submit(() -> {
+                    isready();
+                });
             } else if (command[0].equals("position")) {
-                 position(raw);
+                position(raw);
             } else if ("go".equals(command[0])) {
-                go(command);
+                executorService.submit(() -> {
+                    go(command);
+                });
             } else if ("print".equals(command[0])) {
                 print();
             }
+            /*
+            else if ("test".equals(command[0])) {
+                System.out.println("running");
+                executorService.submit(() -> {
+                    while (true) {
+                        //test for thread termination
+                    }
+                });
+            }*/
         }
+
     }
-    // "used to synchronize the engine with the GUI"
+
+    // Provides synchronization for the engine
     public static void isready() {
         System.out.println("readyok");
     }
@@ -57,9 +87,8 @@ public class UCI {
         /* won't implement for prototype
         else if (input.contains("startpos ")) {
             input = input.substring(9);
-            // todo give board input
-        }
-         */
+            //board input
+        } */
         if (input.contains("moves")) {
             input = input.substring(input.indexOf("moves")+6);
             String[] moves = input.split(" ");
