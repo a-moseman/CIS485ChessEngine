@@ -8,37 +8,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Node {
-    public List<Node> parents;
+    public Node parent;
     public List<Node> children;
     public Board position;
     public Move move;
     public int totalVisits;
-    public double totalSimWhiteWins;
-    public double totalSimBlackWins;
-    public double totalSimTies;
+    double reward;
     public boolean visited;
 
     public Node(Move move, Board position) {
         this.move = move;
         this.position = position;
-        this.parents = new ArrayList<>();
+        this.parent = null;
         this.children = new ArrayList<>();
-    }
-
-    public double getTotalSimReward(Side side) {
-        if (side == Side.WHITE) {
-            return totalSimWhiteWins - totalSimBlackWins - totalSimTies;
-        }
-        else {
-            return totalSimBlackWins - totalSimWhiteWins - totalSimTies;
-        }
-    }
-
-    public double getTotalParentVisits() {
-        double v = 0;
-        for (Node parent : parents) {
-            v += parent.totalVisits;
-        }
-        return v / parents.size();
     }
 }

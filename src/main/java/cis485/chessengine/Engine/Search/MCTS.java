@@ -16,9 +16,11 @@ public class MCTS {
     private Side side;
     private Node root;
     private int visits;
+    private boolean valueBased;
 
-    public MCTS(MultiLayerNetwork model) {
+    public MCTS(MultiLayerNetwork model, boolean valueBased) {
         this.MODEL = model;
+        this.valueBased = valueBased;
     }
 
     public void initialize(Side side, String position) {
@@ -33,87 +35,65 @@ public class MCTS {
 
 
     public void step() {
-        Node leaf = traverse(root);
-        Prediction prediction = predict(leaf.position);
-        backpropagate(leaf, prediction);
-    }
-
-    class Prediction {
-        int result;
-        double confidence;
-    }
-
-    private Prediction predict(Board position) {
         visits++;
-        Prediction prediction = new Prediction();
+        Node leaf = traverse(root);
+        double reward = predict(leaf.position);
+        backpropagate(leaf, reward);
+    }
+
+    private double predict(Board position) {
         if (position.isDraw()) {
-            prediction.result = 2;
-            prediction.confidence = 100;
+            return -0.5;
         }
         else if (position.isMated()){
             if (position.getSideToMove() == Side.BLACK) {
-                prediction.result = 0;
+                return -1;
             }
             else {
-                prediction.result = 1;
+                return 1;
             }
-            prediction.confidence = 100;
         }
         float[][][][] board = new float[][][][]{BoardConverter.oneHotEncode(position)};
         INDArray input = Nd4j.create(board);
         INDArray output = MODEL.output(input, false);
-        float[] out = output.toFloatVector();
-        int pred;
-        if (out[0] > out[1] && out[0] > out[2]) { // white wins
-            pred = 0;
+        if (valueBased) { // for RL model
+            return output.toFloatVector()[0];
         }
-        else if (out[1] > out[0] && out[1] > out[2]) { // black wins
-            pred = 1;
+        else { // for SL model
+            float[] out = output.toFloatVector();
+            return out[0] - out[1] - out[2];
         }
-        else { // draw
-            pred = 2;
-        }
-        prediction.result = pred;
-        prediction.confidence = out[pred];
-        return prediction;
     }
 
     public void printEvaluations() {
         System.out.println("Visits: " + visits);
         for (Node node : root.children) {
-            System.out.printf("%s: %.2f\n", node.move, (double) node.getTotalSimReward(side) / node.totalVisits);
+            System.out.printf("%s: %.2f\n", node.move, node.reward / node.totalVisits);
         }
     }
 
     private Node traverse(Node node) {
+        if (isTerminal(node)) {
+            return node;
+        }
         while (isFullyExpanded(node)) {
+            if (isTerminal(node)) {
+                return node;
+            }
             node = bestUCT(node); // can only be a visited node
         }
         return pickUnvisited(node);
     }
 
-    private void backpropagate(Node node, Prediction prediction) {
+    private void backpropagate(Node node, double reward) {
         //visits++;
         node.visited = true;
-
         node.totalVisits++;
-        switch (prediction.result) {
-            case 0:
-                node.totalSimWhiteWins += prediction.confidence;
-                break;
-            case 1:
-                node.totalSimBlackWins += prediction.confidence;
-                break;
-            case 2:
-                node.totalSimTies += prediction.confidence;
-                break;
-        }
+        node.reward += reward;
         if (root.equals(node)) {
             return;
         }
-        for (Node parent : node.parents) {
-            backpropagate(parent, prediction);
-        }
+        backpropagate(node.parent, -reward);
     }
 
     private boolean isFullyExpanded(Node node) {
@@ -135,9 +115,9 @@ public class MCTS {
 
     private double uctOfChild(Node child) {
         double c = Math.sqrt(2);
-        double exploitationComponent = (double) child.getTotalSimReward(side) / child.totalVisits;
-        double explorationComponent = Math.sqrt(Math.log(child.getTotalParentVisits()) / child.totalVisits);
-        return exploitationComponent + c * explorationComponent;
+        double exploitationComponent = child.reward / child.totalVisits;
+        double explorationComponent = Math.sqrt(Math.log(child.parent.totalVisits) / child.totalVisits);
+        return exploitationComponent + c * explorationComponent ;
     }
 
     private Node pickUnvisited(Node node) {
@@ -152,21 +132,35 @@ public class MCTS {
         childBoard.doMove(move);
         Node child = new Node(move, childBoard);
         node.children.add(child);
-        child.parents.add(node);
+        child.parent = node;
         return child;
     }
 
     public Move getBest() {
         int best = 0;
         for (int i = 1; i < root.children.size(); i++) {
-            if (root.children.get(best).getTotalSimReward(side) < root.children.get(i).getTotalSimReward(side)) {
+            if (root.children.get(best).reward < root.children.get(i).reward) {
                 best = i;
             }
         }
         return root.children.get(best).move;
     }
 
+    public Node getBestNode() {
+        int best = 0;
+        for (int i = 1; i < root.children.size(); i++) {
+            if (root.children.get(best).reward < root.children.get(i).reward) {
+                best = i;
+            }
+        }
+        return root.children.get(best);
+    }
+
     public int getVisits() {
         return visits;
+    }
+
+    public boolean isTerminal(Node node) {
+        return node.position.isDraw() || node.position.isMated();
     }
 }

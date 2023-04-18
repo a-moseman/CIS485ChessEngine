@@ -6,9 +6,22 @@ plugins {
 group 'cis485.chessengine'
 version '1.0-SNAPSHOT'
 
-jar {
+tasks.shadowJar {
     manifest {
-        attributes 'Main-Class': 'cis485.chessengine.Testing'
+        attributes 'Main-Class': 'cis485.chessengine.Engine.UCI'
+    }
+
+    setProperty("zip64", true)
+}
+
+jar {
+    setProperty("zip64", true)
+    manifest {
+        attributes 'Main-Class': 'cis485.chessengine.Engine.UCI'
+    }
+
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
 
@@ -27,21 +40,29 @@ dependencies {
     // https://mvnrepository.com/artifact/org.deeplearning4j/deeplearning4j-core
     implementation 'org.deeplearning4j:deeplearning4j-core:1.0.0-M1.1'
     implementation 'org.deeplearning4j:deeplearning4j-ui:1.0.0-M1.1'
-
     // CPU
-    //implementation 'org.nd4j:nd4j-native-platform:1.0.0-M1.1' // CPU
+    implementation 'org.nd4j:nd4j-native-platform:1.0.0-M1.1' // CPU
 
 
     // GPU
-    implementation 'org.nd4j:nd4j-cuda-11.2-platform:1.0.0-M1.1'
-    implementation 'org.bytedeco:cuda-platform-redist:11.2-8.1-1.5.5'
+    //implementation 'org.bytedeco:cuda-platform-redist:11.2-8.1-1.5.5'
+    //implementation 'org.nd4j:nd4j-cuda-11.2:1.0.0-M1.1'
+    //implementation 'org.nd4j:nd4j-cuda-11.2:1.0.0-M1.1:windows-x86_64-cudnn'
 
-    implementation 'org.deeplearning4j:rl4j-core:1.0.0-M1.1'
-    implementation 'org.deeplearning4j:rl4j-api:1.0.0-M1.1'
 
     implementation 'org.freemarker:freemarker:2.3.29' // https://github.com/deeplearning4j/deeplearning4j/issues/8693#issuecomment-591586660
 }
 
 test {
     useJUnitPlatform()
+}
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Main-Class': 'cis485.chessengine.Engine.UCI'
+    }
+    baseName = 'ChessEngine'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }

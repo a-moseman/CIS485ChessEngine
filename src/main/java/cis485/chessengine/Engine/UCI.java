@@ -5,8 +5,8 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.shade.guava.util.concurrent.MoreExecutors;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.net.URL;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,13 +20,26 @@ public class UCI {
 
     public static void main(String[] args) {
         MultiLayerNetwork model = null;
-        String modelVersion = System.getProperty("user.dir") + "\\src\\main\\java\\cis485\\chessengine\\Engine\\Model\\SL_MODEL_V1.mdl";
+        //String modelVersion = System.getProperty("user.dir") + "\\src\\main\\java\\cis485\\chessengine\\Engine\\Model\\SL_MODEL_V1.mdl";
         try {
-            model = MultiLayerNetwork.load(new File(modelVersion), false);
-        } catch (IOException e) {
+            String name = "res/RL_MODEL_V2.mdl";
+            InputStream inputStream = ClassLoader.getSystemClassLoader().getResourceAsStream(name);
+            if (inputStream == null) {
+                throw new Exception("Improper path to neural network.");
+            }
+            byte[] bytes = inputStream.readAllBytes();
+            inputStream.close();
+            String tempFileName = "model_temp_file-" + System.currentTimeMillis() + ".mdl";
+            OutputStream outputStream = new FileOutputStream(tempFileName);
+            outputStream.write(bytes);
+            outputStream.close();
+            File file = new File(tempFileName);
+            model = MultiLayerNetwork.load(file, false);
+            file.delete();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        engine = new Engine(model);
+        engine = new Engine(model, true);
 
         // Thread pool management
         final int MAX_THREADS = 5;
@@ -47,15 +60,17 @@ public class UCI {
                 running = false;
                 System.out.println("Terminating...");
             } else if ("isready".equals(command[0])) {
-                executorService.submit(() -> {
-                    isready();
-                });
+                //executorService.submit(() -> {
+                //    isready();
+                //});
+                isready();
             } else if (command[0].equals("position")) {
                 position(raw);
             } else if ("go".equals(command[0])) {
-                executorService.submit(() -> {
-                    go(command);
-                });
+                //executorService.submit(() -> {
+                //    go(command);
+                //});
+                go(command);
             } else if ("print".equals(command[0])) {
                 print();
             }

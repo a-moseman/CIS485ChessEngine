@@ -22,6 +22,7 @@ import java.util.HashMap;
 
 public class Testing {
     public static void main(String[] args) {
+        //MultiLayerNetwork model = ModelBuilder.Reinforcement.build();
         MultiLayerNetwork model;
         try {
             model = MultiLayerNetwork.load(new File("C:\\Users\\drewm\\Desktop\\EngineModels\\SL_MODEL_V2.mdl"), false);
@@ -29,9 +30,11 @@ public class Testing {
             throw new RuntimeException(e);
         }
 
+
+
         System.out.println(model.numParams());
 
-        Engine engine = new Engine(model);
+        Engine engine = new Engine(model, false);
         engine.setSecondsPerMove(10f);
         engine.setSide(Side.WHITE);
 

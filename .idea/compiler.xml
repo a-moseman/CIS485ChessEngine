@@ -3,6 +3,6 @@
   <component name="CompilerConfiguration">
     <option name="BUILD_PROCESS_HEAP_SIZE" value="4096" />
     <option name="BUILD_PROCESS_ADDITIONAL_VM_OPTIONS" value="-Xmx4G" />
-    <bytecodeTargetLevel target="13" />
+    <bytecodeTargetLevel target="11" />
   </component>
 </project>
